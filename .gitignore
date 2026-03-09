@@ -1,0 +1,10 @@
+# Git 配置文件
+.gitconfig
+.git/config
+# 其他敏感文件
+*.password
+*.pem
+*.key
+# Windows 下的临时文件
+*.tmp
+*.bak
