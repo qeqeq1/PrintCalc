@@ -1,9 +1,11 @@
-# 打印成本&售价计算器
+# 打印覆盖率、成本、售价计算器
 自用的打印成本、售价核算工具，支持纸张、黑白/彩色单独计价，可根据打印覆盖率计算墨水消耗，生成打印计价单。
 
-✅ 在线体验：https://print.id5.fun
-⚡ 运行环境：纯前端
-☁️ 加速：Powered by Tencent EdgeOne
+✅ 在线体验：https://print.id5.fun   
+⚡ 运行环境：纯前端   
+☁️ 加速：Powered by Tencent EdgeOne   
+<img width="2163" height="308" alt="image" src="https://github.com/user-attachments/assets/47b0cd4a-eaa3-4d7b-abcc-2ece5d71aa6e" />
+
 
 ## 开源协议
 本项目采用 **MIT 开源许可证** 进行授权。详细协议内容请查看 [LICENSE](LICENSE) 文件。
