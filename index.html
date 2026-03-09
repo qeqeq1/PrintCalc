@@ -36,11 +36,11 @@
             min-width: 60px;
         }
         .std-badge { background: #0f172a; color: #fff; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; }
-        .formula-box { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "PingFang SC", "Microsoft YaHei", monospace; font-weight: 600; color: #020617; }
+        .formula-box { font-family: Consolas, "Courier New", "PingFang SC", "Microsoft YaHei", sans-serif; font-weight: 600; color: #020617; }
         .cost-card { border-radius: 8px; padding: 16px; margin-bottom: 12px; }
         .split-line { border-bottom: 1px solid #e2e8f0; margin: 8px 0; }
         .seven-segment {
-            font-family: 'Orbitron', ui-monospace, monospace;
+            font-family: 'Orbitron', Consolas, "Courier New", monospace;
             background: #0b1220;
             color: #9dff00;
             padding: 12px 16px;
@@ -100,7 +100,7 @@
         .file-badge-gray  { background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; }
         .file-badge-blue  { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
         .file-badge-purple{ background: #f5f3ff; border: 1px solid #ddd6fe; color: #6d28d9; }
-        .cmyk-inline { display: inline-flex; gap: 10px; flex-wrap: wrap; align-items: center; font-family: ui-monospace, monospace; font-size: 13px; font-weight: 700; }
+        .cmyk-inline { display: inline-flex; gap: 10px; flex-wrap: wrap; align-items: center; font-family: Consolas, "Courier New", "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 13px; font-weight: 700; }
         /* 顾客对账单弹窗 */
         .bill-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; z-index: 10001; padding: 16px; }
         .bill-modal  { background: #fff; border-radius: 12px; width: 100%; max-width: 680px; max-height: 92vh; overflow-y: auto; box-shadow: 0 24px 64px rgba(0,0,0,0.35); }
@@ -130,7 +130,10 @@
         .btn-bill-img   { background: #8b5cf6; color: #fff; padding: 8px 20px; border-radius: 6px; font-weight: 700; font-size: 14px; cursor: pointer; border: none; }
         .btn-bill-img:disabled, .btn-bill-newtab:disabled { opacity: .6; cursor: not-allowed; }
         
-        /* 平滑数字过渡 - 仅用于JS驱动的数字元素 */
+        /* 覆盖 Tailwind font-mono，防止回退宋体 */
+        .font-mono, [class*="font-mono"] {
+            font-family: Consolas, "Courier New", "PingFang SC", "Microsoft YaHei", sans-serif !important;
+        }
         .smooth-num { transition: none; }
 
         @media (max-width: 768px) {
@@ -168,7 +171,7 @@
         <div class="mb-4 rounded-lg bg-gradient-to-r from-slate-800 to-slate-600 text-white p-4 md:p-5 border border-slate-700">
             <div class="flex items-center gap-3 flex-wrap">
                 <span class="std-badge">工具介绍</span>
-                <h1 class="text-lg md:text-xl font-bold">打印覆盖率计算器（本地运行版）</h1>
+                <h1 class="text-lg md:text-xl font-bold">打印覆盖率计算器（纯前端版）</h1>
                 <button @click="resetToDefault" class="btn-reset ml-auto">重置默认配置</button>
             </div>
             <p class="text-sm mt-2 opacity-90">
@@ -519,7 +522,7 @@
                                 </span>
                             </div>
                             <div class="cmyk-inline">
-                                <span class="cmyk-unified-badge" style="display:inline-flex;align-items:center;gap:0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;font-family:ui-monospace,monospace;font-size:12px;font-weight:700;">
+                                <span class="cmyk-unified-badge" style="display:inline-flex;align-items:center;gap:0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;font-family:Consolas,"Courier New","PingFang SC","Microsoft YaHei",sans-serif;font-size:12px;font-weight:700;">
                                     <span style="padding:3px 8px;color:#0e7490;background:#ecfeff;">C: {{ fmt(getFileAvgCmyk(file).c) }}%</span>
                                     <span style="width:1px;background:#e2e8f0;align-self:stretch;"></span>
                                     <span style="padding:3px 8px;color:#be185d;background:#fdf2f8;">M: {{ fmt(getFileAvgCmyk(file).m) }}%</span>
@@ -548,7 +551,7 @@
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                正在逐页解析中... (数据动态累加)
+                                正在逐页解析中... (请勿添加过大文件)
                             </span>
                             <span>{{ file.progressTotal ? Math.round((file.progress / file.progressTotal) * 100) : 0 }}% ({{ file.progress }} / {{ file.progressTotal || '计算中...' }})</span>
                         </div>
