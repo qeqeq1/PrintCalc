@@ -8,12 +8,13 @@
     <meta name="author" content="打印成本测算工具">
  
     <title>打印覆盖率计算器 | 打印成本/售价测算工具</title>
-    <script src="./js/vue.global.js"></script>
-    <script src="./js/tailwindcss.js"></script>
-    <script src="./js/pdf.min.js"></script>
-    <script src="./js/html2canvas.min.js"></script>
+    <!-- 使用公共 CDN 替换本地静态文件 -->
+    <script src="https://unpkg.com/vue@3.3.4/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        /* 全局禁用宋体，强制采用现代无衬线黑体 */
+        /* 强制采用现代无衬线黑体 */
         * { font-family: inherit; }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -129,7 +130,9 @@
         .btn-bill-img   { background: #8b5cf6; color: #fff; padding: 8px 20px; border-radius: 6px; font-weight: 700; font-size: 14px; cursor: pointer; border: none; }
         .btn-bill-img:disabled, .btn-bill-newtab:disabled { opacity: .6; cursor: not-allowed; }
         
-        @media print { .bill-backdrop { position: static; background: none; } .bill-modal { box-shadow: none; max-height: none; } }
+        /* 平滑数字过渡 - 仅用于JS驱动的数字元素 */
+        .smooth-num { transition: none; }
+
         @media (max-width: 768px) {
             .cmyk-grid { grid-template-columns: repeat(2, 1fr); }
             .grid-cols-1 md\\:grid-cols-2 lg\\:grid-cols-4 { grid-template-columns: 1fr !important; }
@@ -169,13 +172,13 @@
                 <button @click="resetToDefault" class="btn-reset ml-auto">重置默认配置</button>
             </div>
             <p class="text-sm mt-2 opacity-90">
-                支持将 PDF 文件拖拽到网页任意位置，逐页计算CMYK覆盖率并根据物理尺寸动态折算，进行黑白/彩色计价与成本测算。完全在本地运行，保护数据隐私。
+                支持将 PDF 文件拖拽到网页任意位置，逐页计算CMYK覆盖率并动态折算测算。当前正在自动累计计算数据。完全在本地运行，保护数据隐私。
             </p>
         </div>
         
         <!-- 配置区域 -->
         <header class="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-6 border border-slate-200">
-            <!-- 打印单价、各种参数配置等保持原样 -->
+            <!-- 打印单价、各种参数配置 -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-4">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div class="flex flex-col">
@@ -299,37 +302,36 @@
                     </button>
                 </div>
 
-                <!-- 现在此处 v-show 将包括明细、总成本、利润率在内的所有内容全部包裹隐藏 -->
                 <div v-show="showCostSection">
                     <!-- 墨水成本 -->
                     <div class="mb-6">
                         <p class="text-xs text-slate-500 font-bold">墨水成本</p>
                         <div class="flex items-baseline gap-3 mb-2 flex-wrap">
-                            <p class="text-2xl font-bold text-blue-600">￥{{ inkCost.toFixed(4) }}</p>
-                            <p class="text-sm text-slate-400">总折算标准A4页: {{ totalStandardPages.toFixed(4) }}</p>
+                            <p class="text-2xl font-bold text-blue-600">￥{{ fmt(inkCost) }}</p>
+                            <p class="text-sm text-slate-400">总折算标准A4页: {{ fmt(totalStandardPages) }}</p>
                         </div>
                         <p class="text-sm font-mono text-slate-600">
-                            墨水单页成本 : {{ config.inkPrice.toFixed(2) }}元 ÷ {{ config.inkYield }}页 = {{ (config.inkPrice/config.inkYield).toFixed(6) }}元/页
+                            墨水单页成本 : {{ fmt(config.inkPrice) }}元 ÷ {{ config.inkYield }}页 = {{ fmt(config.inkPrice/config.inkYield, 6) }}元/页
                         </p>
                         <p class="text-sm font-mono text-slate-600 mt-1">
-                            墨水总成本 : {{ totalStandardPages.toFixed(4) }}页 × {{ (config.inkPrice/config.inkYield).toFixed(6) }}元/页 = {{ inkCost.toFixed(4) }}元
+                            墨水总成本 : {{ fmt(totalStandardPages) }}页 × {{ fmt(config.inkPrice/config.inkYield, 6) }}元/页 = {{ fmt(inkCost) }}元
                         </p>
                     </div>
                     <!-- 纸张成本 -->
                     <div class="mb-6">
                         <p class="text-xs text-slate-500 font-bold">纸张成本</p>
                         <div class="flex items-baseline gap-3 mb-2 flex-wrap">
-                            <p class="text-2xl font-bold text-orange-600">￥{{ paperCost.toFixed(4) }}</p>
+                            <p class="text-2xl font-bold text-orange-600">￥{{ fmt(paperCost) }}</p>
                             <p class="text-sm text-slate-400">70g:{{total70gSheets}}张 | 80g:{{total80gSheets}}张</p>
                         </div>
                         <p class="text-sm font-mono text-slate-600">
-                            70g单张成本 : {{ config.paper70gPrice.toFixed(2) }}元 ÷ {{ config.paper70gQty }}张 = {{ (config.paper70gPrice/config.paper70gQty).toFixed(6) }}元/张
+                            70g单张成本 : {{ fmt(config.paper70gPrice) }}元 ÷ {{ config.paper70gQty }}张 = {{ fmt(config.paper70gPrice/config.paper70gQty, 6) }}元/张
                         </p>
                         <p class="text-sm font-mono text-slate-600 mt-1">
-                            80g单张成本 : {{ config.paper80gPrice.toFixed(2) }}元 ÷ {{ config.paper80gQty }}张 = {{ (config.paper80gPrice/config.paper80gQty).toFixed(6) }}元/张
+                            80g单张成本 : {{ fmt(config.paper80gPrice) }}元 ÷ {{ config.paper80gQty }}张 = {{ fmt(config.paper80gPrice/config.paper80gQty, 6) }}元/张
                         </p>
                         <p class="text-sm font-mono text-slate-600 mt-1">
-                            纸张总成本 : ({{ total70gSheets }}张 × {{ (config.paper70gPrice/config.paper70gQty).toFixed(6) }}元/张) + ({{ total80gSheets }}张 × {{ (config.paper80gPrice/config.paper80gQty).toFixed(6) }}元/张) = {{ paperCost.toFixed(4) }}元
+                            纸张总成本 : ({{ total70gSheets }}张 × {{ fmt(config.paper70gPrice/config.paper70gQty, 6) }}元/张) + ({{ total80gSheets }}张 × {{ fmt(config.paper80gPrice/config.paper80gQty, 6) }}元/张) = {{ fmt(paperCost) }}元
                         </p>
                         <p class="text-xs text-amber-600 font-bold mt-1" v-if="hasDuplexFiles">※ 双面打印文件的纸张数 = ⌈页数 ÷ 2⌉（向上取整）</p>
                     </div>
@@ -339,19 +341,19 @@
                         <div class="cmyk-grid">
                             <div class="cmyk-item">
                                 <span class="cmyk-label">C</span>
-                                <span class="cmyk-value">{{ (totalCmyk.c / 5).toFixed(4) }}</span>
+                                <span class="cmyk-value">{{ fmt(totalCmyk.c / 5) }}</span>
                             </div>
                             <div class="cmyk-item">
                                 <span class="cmyk-label">M</span>
-                                <span class="cmyk-value">{{ (totalCmyk.m / 5).toFixed(4) }}</span>
+                                <span class="cmyk-value">{{ fmt(totalCmyk.m / 5) }}</span>
                             </div>
                             <div class="cmyk-item">
                                 <span class="cmyk-label">Y</span>
-                                <span class="cmyk-value">{{ (totalCmyk.y / 5).toFixed(4) }}</span>
+                                <span class="cmyk-value">{{ fmt(totalCmyk.y / 5) }}</span>
                             </div>
                             <div class="cmyk-item">
                                 <span class="cmyk-label">K</span>
-                                <span class="cmyk-value">{{ (totalCmyk.k / 5).toFixed(4) }}</span>
+                                <span class="cmyk-value">{{ fmt(totalCmyk.k / 5) }}</span>
                             </div>
                         </div>
                     </div>
@@ -362,22 +364,22 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
                         <div>
                             <p class="text-xs text-slate-500 font-bold">总成本</p>
-                            <p class="text-3xl font-bold text-green-600">￥{{ (paperCost + inkCost).toFixed(4) }}</p>
-                            <p class="text-sm font-mono text-slate-600 mt-1">总成本 : {{ paperCost.toFixed(4) }}元 + {{ inkCost.toFixed(4) }}元 = {{ (paperCost + inkCost).toFixed(4) }}元</p>
+                            <p class="text-3xl font-bold text-green-600" id="disp-totalcost">￥{{ fmt(paperCost + inkCost) }}</p>
+                            <p class="text-sm font-mono text-slate-600 mt-1">总成本 : {{ fmt(paperCost) }}元 + {{ fmt(inkCost) }}元 = {{ fmt(paperCost + inkCost) }}元</p>
                         </div>
                         <div>
                             <p class="text-xs text-slate-500 font-bold">利润率 / 利润金额</p>
                             <div class="flex items-baseline gap-3 flex-wrap">
-                                <p class="text-3xl font-bold text-purple-600">{{ profitRate.toFixed(2) }}%</p>
-                                <p class="text-xl font-bold" :class="profitAmount >= 0 ? 'text-emerald-600' : 'text-red-600'">
-                                    {{ profitAmount >= 0 ? '+' : '' }}￥{{ profitAmount.toFixed(4) }}
+                                <p class="text-3xl font-bold text-purple-600" id="disp-profitr">{{ fmt(profitRate) }}%</p>
+                                <p class="text-xl font-bold" :class="profitAmount >= 0 ? 'text-emerald-600' : 'text-red-600'" id="disp-profita">
+                                    {{ profitAmount >= 0 ? '+' : '' }}￥{{ fmt(profitAmount) }}
                                 </p>
                             </div>
                             <p class="text-sm font-mono text-slate-600 mt-1">
-                                利润率 : ({{ finalAmount.toFixed(4) }}元 - {{ (paperCost+inkCost).toFixed(4) }}元) ÷ {{ finalAmount.toFixed(4) }}元 × 100% = {{ profitRate.toFixed(2) }}%
+                                利润率 : ({{ fmt(finalAmount) }}元 - {{ fmt(paperCost+inkCost) }}元) ÷ {{ fmt(finalAmount) }}元 × 100% = {{ fmt(profitRate) }}%
                             </p>
                             <p class="text-sm font-mono text-slate-600 mt-1">
-                                利润 : {{ finalAmount.toFixed(4) }}元 - {{ (paperCost+inkCost).toFixed(4) }}元 = {{ profitAmount.toFixed(4) }}元
+                                利润 : {{ fmt(finalAmount) }}元 - {{ fmt(paperCost+inkCost) }}元 = {{ fmt(profitAmount) }}元
                             </p>
                         </div>
                     </div>
@@ -395,38 +397,38 @@
                 
                 <div class="flex flex-wrap gap-4 text-xs bg-slate-800 p-2 rounded-lg mb-4 text-slate-300">
                     <span class="font-bold text-slate-100">打印总量统计：</span>
-                    <span>黑白总计: <b class="text-cyan-400">{{ totalBwPages }}</b> 页</span>
-                    <span>彩色总计: <b class="text-pink-400">{{ totalColorPages }}</b> 页</span>
-                    <span>空白总计: <b class="text-amber-400">{{ totalBlankPages }}</b> 页{{ config.blankPageFree ? '（不计费）' : '（计费）' }}</span>
-                    <span>所有总计: <b class="text-indigo-400">{{ totalBwPages + totalColorPages + totalBlankPages }}</b> 页</span>
+                    <span>黑白总计: <b class="text-cyan-400" id="disp-tbw">{{ totalBwPages }}</b> 页</span>
+                    <span>彩色总计: <b class="text-pink-400" id="disp-tcol">{{ totalColorPages }}</b> 页</span>
+                    <span>空白总计: <b class="text-amber-400" id="disp-tblk">{{ totalBlankPages }}</b> 页{{ config.blankPageFree ? '（不计费）' : '（计费）' }}</span>
+                    <span>所有总计: <b class="text-indigo-400" id="disp-tall">{{ totalBwPages + totalColorPages + totalBlankPages }}</b> 页</span>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 text-sm">
                     <div v-show="mixedBwPages > 0 || (mixedBwPages === 0 && mixedColorPages === 0 && singlePages === 0)" class="bg-slate-800 p-3 rounded-lg">
                         <p class="text-xs text-slate-300 font-bold">黑白打印费 (分色)</p>
-                        <p class="text-lg font-bold text-cyan-400">￥{{ totalBwCost.toFixed(4) }}</p>
-                        <p class="text-xs font-mono text-slate-400">{{ mixedBwPages }} × {{ config.bw.toFixed(4) }} =</p>
+                        <p class="text-lg font-bold text-cyan-400" id="disp-bwcost">￥{{ fmt(totalBwCost) }}</p>
+                        <p class="text-xs font-mono text-slate-400">{{ mixedBwPages }} × {{ fmt(config.bw) }} =</p>
                     </div>
                     
                     <div v-show="mixedColorPages > 0 || (mixedBwPages === 0 && mixedColorPages === 0 && singlePages === 0)" class="bg-slate-800 p-3 rounded-lg">
                         <p class="text-xs text-slate-300 font-bold">彩色打印费 (分色)</p>
-                        <p class="text-lg font-bold text-pink-400">￥{{ totalColorCost.toFixed(4) }}</p>
-                        <p class="text-xs font-mono text-slate-400">{{ mixedColorPages }} × {{ config.color.toFixed(4) }} =</p>
+                        <p class="text-lg font-bold text-pink-400" id="disp-colcost">￥{{ fmt(totalColorCost) }}</p>
+                        <p class="text-xs font-mono text-slate-400">{{ mixedColorPages }} × {{ fmt(config.color) }} =</p>
                     </div>
                     
                     <div v-show="singlePages > 0" class="bg-slate-800 p-3 rounded-lg">
                         <p class="text-xs text-slate-300 font-bold">单一计价打印费</p>
-                        <p class="text-lg font-bold text-indigo-400">￥{{ totalSingleCost.toFixed(4) }}</p>
-                        <p class="text-xs font-mono text-slate-400">{{ singlePages }} × {{ config.single.toFixed(4) }} =</p>
+                        <p class="text-lg font-bold text-indigo-400" id="disp-single">￥{{ fmt(totalSingleCost) }}</p>
+                        <p class="text-xs font-mono text-slate-400">{{ singlePages }} × {{ fmt(config.single) }} =</p>
                     </div>
 
                     <div class="bg-slate-800 p-3 rounded-lg">
                         <p class="text-xs text-slate-300 font-bold">各项附加费合计</p>
-                        <p class="text-lg font-bold text-yellow-400">￥{{ (totalPaperAddCost + totalCustomFeesCost).toFixed(4) }}</p>
+                        <p class="text-lg font-bold text-yellow-400" id="disp-extra">￥{{ fmt(totalPaperAddCost + totalCustomFeesCost) }}</p>
                         <div class="text-xs font-mono text-slate-400 mt-1 flex flex-col gap-0.5">
-                            <span v-if="totalPaperAddCost > 0">80g纸: ￥{{ totalPaperAddCost.toFixed(4) }}</span>
+                            <span v-if="totalPaperAddCost > 0">80g纸: ￥{{ fmt(totalPaperAddCost) }}</span>
                             <span v-for="(fee, idx) in customFeesTotal" :key="'total-fee-'+idx" v-show="fee.total > 0">
-                                {{ fee.name }}: ￥{{ fee.total.toFixed(4) }}
+                                {{ fee.name }}: ￥{{ fmt(fee.total) }}
                             </span>
                             <span v-if="(totalPaperAddCost + totalCustomFeesCost) === 0">无附加费</span>
                         </div>
@@ -434,8 +436,8 @@
                     
                     <div class="bg-slate-800 p-3 rounded-lg">
                         <p class="text-xs text-slate-300 font-bold">折扣后金额</p>
-                        <p class="text-lg font-bold text-green-400">￥{{ discountAmount.toFixed(4) }}</p>
-                        <p class="text-xs font-mono text-slate-400">{{ totalStats.cost.toFixed(4) }} × {{ discountRate }}% = </p>
+                        <p class="text-lg font-bold text-green-400" id="disp-disc">￥{{ fmt(discountAmount) }}</p>
+                        <p class="text-xs font-mono text-slate-400">{{ fmt(totalStats.cost) }} × {{ discountRate }}% = </p>
                     </div>
                 </div>
                 
@@ -471,22 +473,22 @@
                 <div class="amount-display-container">
                     <div class="amount-screen">
                         <div class="screen-label">原始金额（未调整）</div>
-                        <p class="text-2xl font-bold seven-segment">￥{{ formatAmount(totalStats.cost) }}</p>
+                        <p class="text-2xl font-bold seven-segment" id="disp-orig">￥{{ fmt(totalStats.cost) }}</p>
                     </div>
                     <div class="amount-screen">
                         <div class="screen-label">最终金额（折扣/抹零/调价后）</div>
-                        <p class="text-2xl font-bold seven-segment">￥{{ formatAmount(finalAmount) }}</p>
+                        <p class="text-2xl font-bold seven-segment" id="disp-final">￥{{ fmt(finalAmount) }}</p>
                     </div>
                 </div>
                 
                 <div class="mb-2">
                     <p class="text-xs text-slate-300 font-bold">金额计算明细</p>
                     <div class="text-xs font-mono text-slate-400 mt-1 space-y-1 bg-slate-800 p-3 rounded-md">
-                        <p>原始金额 = {{ formatAmount(totalStats.cost) }}元</p>
-                        <p>折扣后金额 : {{ formatAmount(totalStats.cost) }} × {{ (discountRate / 100).toFixed(4) }} = {{ formatAmount(discountAmount) }}元</p>
-                        <p v-if="isRounded">抹零后金额 = ￥{{ formatAmount(discountAmount) }} → ￥{{ formatAmount(afterRoundAmount) }}元（向下取整）</p>
+                        <p>原始金额 = {{ fmt(totalStats.cost) }}元</p>
+                        <p>折扣后金额 : {{ fmt(totalStats.cost) }} × {{ fmt(discountRate / 100) }} = {{ fmt(discountAmount) }}元</p>
+                        <p v-if="isRounded">抹零后金额 = ￥{{ fmt(discountAmount) }} → ￥{{ fmt(afterRoundAmount) }}元（向下取整）</p>
                         <p v-if="adjustType && adjustHistory > 0">
-                            {{ adjustType === 'add' ? '加价' : '减价' }}后金额 = ￥{{ (isRounded ? afterRoundAmount : discountAmount).toFixed(4) }} {{ adjustType === 'add' ? '+' : '-' }} ￥{{ adjustHistory.toFixed(2) }} = ￥{{ finalAmount.toFixed(4) }}元
+                            {{ adjustType === 'add' ? '加价' : '减价' }}后金额 = ￥{{ fmt(isRounded ? afterRoundAmount : discountAmount) }} {{ adjustType === 'add' ? '+' : '-' }} ￥{{ fmt(adjustHistory) }} = ￥{{ fmt(finalAmount) }}元
                         </p>
                     </div>
                 </div>
@@ -494,19 +496,20 @@
         </section>
        
 
-        <!-- 打印结算明细清单（省略非重点部分，保持原有逻辑渲染） -->
+        <!-- 打印结算明细清单 -->
         <section class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden mb-6 w-full">
             <div class="bg-slate-800 text-white p-4 md:p-6">
                 <h2 class="text-xl font-bold">打印结算明细清单</h2>
             </div>
             <div class="p-4 md:p-6">
                 <div v-for="(file, fIdx) in files" :key="fIdx" class="mb-4 p-4 bg-slate-50 rounded-lg">
-                    <!-- 此处渲染保持不变... -->
+                    
+                    <!-- ====== 文件标题与信息概览（常驻显示） ====== -->
                     <div class="flex flex-wrap justify-between items-center mb-3">
                         <div class="flex flex-col gap-2">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <span class="text-lg font-bold">{{ fIdx + 1 }}. {{ file.name }}</span>
-                                <span class="file-badge file-badge-dark">折算标准页: {{ getFileStdPages(file).toFixed(4) }}</span>
+                                <span class="file-badge file-badge-dark">折算标准页: {{ fmt(getFileStdPages(file)) }}</span>
                                 <span class="file-badge file-badge-gray">物理页数: {{ file.totalPages }}</span>
                                 <span class="file-badge" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;border-radius:4px;">黑白: {{ file.bwCount }} 张</span>
                                 <span class="file-badge" style="background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:4px;">彩色: {{ file.colCount }} 张</span>
@@ -516,22 +519,51 @@
                                 </span>
                             </div>
                             <div class="cmyk-inline">
-                                <span class="text-cyan-700">C: {{ getFileAvgCmyk(file).c.toFixed(4) }}%</span>
-                                <span class="text-pink-600">M: {{ getFileAvgCmyk(file).m.toFixed(4) }}%</span>
-                                <span class="text-yellow-600">Y: {{ getFileAvgCmyk(file).y.toFixed(4) }}%</span>
-                                <span class="text-slate-800">K: {{ getFileAvgCmyk(file).k.toFixed(4) }}%</span>
-                                <span class="file-badge file-badge-gray" style="font-family:ui-monospace,monospace;">平均覆盖率: {{ getFileTotalCoverage(file).toFixed(4) }}%</span>
+                                <span class="cmyk-unified-badge" style="display:inline-flex;align-items:center;gap:0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;font-family:ui-monospace,monospace;font-size:12px;font-weight:700;">
+                                    <span style="padding:3px 8px;color:#0e7490;background:#ecfeff;">C: {{ fmt(getFileAvgCmyk(file).c) }}%</span>
+                                    <span style="width:1px;background:#e2e8f0;align-self:stretch;"></span>
+                                    <span style="padding:3px 8px;color:#be185d;background:#fdf2f8;">M: {{ fmt(getFileAvgCmyk(file).m) }}%</span>
+                                    <span style="width:1px;background:#e2e8f0;align-self:stretch;"></span>
+                                    <span style="padding:3px 8px;color:#a16207;background:#fefce8;">Y: {{ fmt(getFileAvgCmyk(file).y) }}%</span>
+                                    <span style="width:1px;background:#e2e8f0;align-self:stretch;"></span>
+                                    <span style="padding:3px 8px;color:#334155;background:#f1f5f9;">K: {{ fmt(getFileAvgCmyk(file).k) }}%</span>
+                                    <span style="width:1px;background:#e2e8f0;align-self:stretch;"></span>
+                                    <span style="padding:3px 10px;color:#1d4ed8;background:#eff6ff;">平均覆盖率: {{ fmt(getFileTotalCoverage(file)) }}%</span>
+                                </span>
                             </div>
                         </div>
                         <div class="text-right mt-2 w-full sm:w-auto">
-                            <p class="text-xl font-bold text-blue-700">￥{{ (calcFileFinalAmount(file) * file.copies).toFixed(4) }}</p>
+                            <p class="text-xl font-bold text-blue-700">￥{{ fmt(calcFileFinalAmount(file) * file.copies) }}</p>
                             <button @click="file.showPreview = !file.showPreview" class="mt-2 bg-blue-50 text-blue-700 px-3 py-1 rounded border border-blue-200 text-sm font-bold">
                                 {{ file.showPreview ? '收起逐页分析 ▲' : '查看逐页分析 ▼' }}
                             </button>
                         </div>
                     </div>
-                    <!-- 核心操作区与逐页分析等均保持原逻辑 -->
+
+                    <!-- ====== 文件正在解析时的内嵌进度条 ====== -->
+                    <div v-if="file.loading" class="mb-3 bg-blue-50 p-3 rounded-lg border border-blue-200">
+                        <div class="flex justify-between items-center mb-2 text-sm font-bold text-blue-700">
+                            <span class="flex items-center gap-2">
+                                <svg class="animate-spin h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                正在逐页解析中... (数据动态累加)
+                            </span>
+                            <span>{{ file.progressTotal ? Math.round((file.progress / file.progressTotal) * 100) : 0 }}% ({{ file.progress }} / {{ file.progressTotal || '计算中...' }})</span>
+                        </div>
+                        <div class="w-full bg-blue-200 rounded-full h-2 overflow-hidden">
+                            <div class="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out" :style="{ width: (file.progressTotal ? ((file.progress / file.progressTotal) * 100) : 0) + '%' }"></div>
+                        </div>
+                    </div>
+                    <!-- ====== 解析失败的报错信息 ====== -->
+                    <div v-else-if="file.error" class="mb-3 bg-red-50 p-3 rounded-lg border border-red-200 text-sm">
+                        <div class="text-red-600 font-bold mb-1">⚠️ 解析出现异常: {{ file.error }}</div>
+                    </div>
+
                     <div class="split-line mb-3"></div>
+
+                    <!-- ====== 配置与选项区 ====== -->
                     <div class="flex flex-wrap items-center gap-4 mb-4">
                         <div class="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded">
                             <label class="text-sm font-bold">份数:</label>
@@ -546,7 +578,7 @@
                         </div>
                         <label class="flex items-center gap-1 cursor-pointer">
                             <input type="checkbox" v-model="file.use80gPaper" class="w-4 h-4"> 
-                            <span class="text-sm font-bold">使用80g纸（附加 ￥{{ config.paperAdd80g.toFixed(2) }}/张）</span>
+                            <span class="text-sm font-bold">使用80g纸（附加 ￥{{ fmt(config.paperAdd80g) }}/张）</span>
                         </label>
                         <label class="flex items-center gap-1 cursor-pointer">
                             <input type="checkbox" v-model="file.duplex" class="w-4 h-4"> 
@@ -555,7 +587,7 @@
                         
                         <label v-for="(fee, idx) in customFees" :key="'fee-' + idx" class="flex items-center gap-1 cursor-pointer mt-2 sm:mt-0">
                             <input type="checkbox" v-model="file.selectedFees[idx]" class="w-4 h-4"> 
-                            <span class="text-sm font-bold">{{ fee.name }}（{{ fee.price }}元/{{ fee.type === 'perPage' ? '页' : '份' }}）</span>
+                            <span class="text-sm font-bold">{{ fee.name }}（{{ fmt(fee.price) }}元/{{ fee.type === 'perPage' ? '页' : '份' }}）</span>
                         </label>
                         
                         <button @click="removeFile(fIdx)" class="btn-remove ml-auto">移除文件</button>
@@ -566,18 +598,18 @@
                             <span>打印费：</span>
                             <span v-if="file.mode === 'mixed'">
                                 <template v-if="config.blankPageFree && file.blankCount > 0">
-                                    黑白：{{ file.bwCount }}张×{{ config.bw.toFixed(4) }}元/张={{ (file.bwCount*config.bw).toFixed(4) }}元 + 彩色：{{ file.colCount }}张×{{ config.color.toFixed(4) }}元/张={{ (file.colCount*config.color).toFixed(4) }}元 + 空白：{{ file.blankCount }}张×0元 = 合计：{{ (file.bwCount*config.bw + file.colCount*config.color).toFixed(4) }}元
+                                    黑白：{{ file.bwCount }}张×{{ fmt(config.bw) }}元/张={{ fmt(file.bwCount*config.bw) }}元 + 彩色：{{ file.colCount }}张×{{ fmt(config.color) }}元/张={{ fmt(file.colCount*config.color) }}元 + 空白：{{ file.blankCount }}张×0元 = 合计：{{ fmt(file.bwCount*config.bw + file.colCount*config.color) }}元
                                 </template>
                                 <template v-else>
-                                    黑白：{{ file.bwCount }}张×{{ config.bw.toFixed(4) }}元/张={{ (file.bwCount*config.bw).toFixed(4) }}元 + 彩色：{{ file.colCount }}张×{{ config.color.toFixed(4) }}元/张={{ (file.colCount*config.color).toFixed(4) }}元 = 合计：{{ (file.bwCount*config.bw + file.colCount*config.color).toFixed(4) }}元
+                                    黑白：{{ file.bwCount }}张×{{ fmt(config.bw) }}元/张={{ fmt(file.bwCount*config.bw) }}元 + 彩色：{{ file.colCount }}张×{{ fmt(config.color) }}元/张={{ fmt(file.colCount*config.color) }}元 = 合计：{{ fmt(file.bwCount*config.bw + file.colCount*config.color) }}元
                                 </template>
                             </span>
                             <span v-else>
                                 <template v-if="config.blankPageFree && file.blankCount > 0">
-                                    {{ file.totalPages - file.blankCount }}张×{{ config.single.toFixed(4) }}元/张={{ ((file.totalPages-file.blankCount)*config.single).toFixed(4) }}元（空白{{ file.blankCount }}张免费）
+                                    {{ file.totalPages - file.blankCount }}张×{{ fmt(config.single) }}元/张={{ fmt((file.totalPages-file.blankCount)*config.single) }}元（空白{{ file.blankCount }}张免费）
                                 </template>
                                 <template v-else>
-                                    {{ file.totalPages }}张×{{ config.single.toFixed(4) }}元/张={{ (file.totalPages*config.single).toFixed(4) }}元
+                                    {{ file.totalPages }}张×{{ fmt(config.single) }}元/张={{ fmt(file.totalPages*config.single) }}元
                                 </template>
                             </span>
                         </div>
@@ -590,9 +622,9 @@
                             <span class="flex flex-col items-end gap-0.5 text-purple-700">
                                 <template v-if="getFeeList(file).length > 0">
                                     <span v-for="(item, index) in getFeeList(file)" :key="index">
-                                        {{ item.label }}: {{ item.detail }} = {{ item.cost.toFixed(4) }}元
+                                        {{ item.label }}: {{ item.detail }} = {{ fmt(item.cost) }}元
                                     </span>
-                                    <span class="font-bold text-orange-700">合计：{{ getFeeTotal(file).toFixed(4) }}元</span>
+                                    <span class="font-bold text-orange-700">合计：{{ fmt(getFeeTotal(file)) }}元</span>
                                 </template>
                                 <template v-else>
                                     <span class="text-slate-500">无附加费</span>
@@ -601,12 +633,11 @@
                         </div>
                         <div class="flex justify-between font-bold text-blue-700 flex-wrap">
                             <span>最终合计（含{{ discountRate }}%折扣）：</span>
-                            <span>{{ calcFileSubtotal(file).toFixed(4) }}元 × {{ file.copies }}份 × {{ discountRate }}% = {{ (calcFileFinalAmount(file)*file.copies).toFixed(4) }}元</span>
+                            <span>{{ fmt(calcFileSubtotal(file)) }}元 × {{ file.copies }}份 × {{ discountRate }}% = {{ fmt(calcFileFinalAmount(file)*file.copies) }}元</span>
                         </div>
                     </div>
 
                     <div :class="['collapse-content', { open: file.showPreview }]">
-                        <!-- 逐页分析的展示与原一致 -->
                         <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                                 <div v-for="(page, pIdx) in file.pages" :key="pIdx" class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
@@ -621,20 +652,20 @@
                                             <span class="text-xs text-slate-400">第 {{pIdx+1}} 页</span>
                                         </div>
                                         <div class="grid grid-cols-2 gap-1 text-xs font-mono">
-                                            <span class="text-cyan-700">C: {{page.cmyk.c.toFixed(4)}}%</span>
-                                            <span class="text-pink-600">M: {{page.cmyk.m.toFixed(4)}}%</span>
-                                            <span class="text-yellow-600">Y: {{page.cmyk.y.toFixed(4)}}%</span>
-                                            <span class="text-slate-800">K: {{page.cmyk.k.toFixed(4)}}%</span>
+                                            <span class="text-cyan-700">C: {{fmt(page.cmyk.c)}}%</span>
+                                            <span class="text-pink-600">M: {{fmt(page.cmyk.m)}}%</span>
+                                            <span class="text-yellow-600">Y: {{fmt(page.cmyk.y)}}%</span>
+                                            <span class="text-slate-800">K: {{fmt(page.cmyk.k)}}%</span>
                                         </div>
                                         <div class="bg-blue-50 p-2 rounded text-xs">
                                             <div class="flex justify-between mb-1">
                                                 <span>总覆盖率:</span>
-                                                <span>{{ page.total.toFixed(4) }}%</span>
+                                                <span>{{ fmt(page.total) }}%</span>
                                             </div>
                                             <div class="flex justify-between items-center text-blue-700">
                                                 <span>折算标页:</span>
                                                 <span :class="{'bg-red-500 text-white px-1 rounded': page.stdPages > 1.5}">
-                                                    {{ page.stdPages.toFixed(4) }}
+                                                    {{ fmt(page.stdPages) }}
                                                 </span>
                                             </div>
                                         </div>
@@ -655,7 +686,7 @@
                  <div class="mt-4 p-6 border-2 border-dashed border-slate-300 rounded text-center text-slate-700 font-bold">
                     广告位招租（欢迎邮件联系）
                 </div> 
-                <p class="mb-2">联系方式：admin@01r.cc </p>
+                <p class="mb-2">联系方式：admin@01r.cc</a> </p>
                 <div class="flex flex-wrap gap-3">
                     <a v-for="link in friendlyLinks" :key="link.url" :href="link.url" target="_blank" class="friend-link" :title="link.title || link.url">
                         {{ link.title || link.url }}
@@ -684,7 +715,8 @@
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:4px;">
                         <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center;">
                             <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:4px;">文件数</div>
-                            <div style="font-size:22px;font-weight:800;color:#1e293b;">{{ files.length }}</div>
+                            <!-- 仅展示成功或正在解析的文件，过滤错误 -->
+                            <div style="font-size:22px;font-weight:800;color:#1e293b;">{{ files.filter(f => !f.error).length }}</div>
                         </div>
                         <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;text-align:center;">
                             <div style="font-size:11px;color:#3b82f6;font-weight:700;margin-bottom:4px;">黑白总页</div>
@@ -706,7 +738,8 @@
 
                     <!-- 逐文件明细 -->
                     <div class="bill-section-title">逐文件计费明细</div>
-                    <div v-for="(file, fIdx) in files" :key="'bill-'+fIdx" style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:14px;">
+                    <!-- 过滤掉错误的文件 -->
+                    <div v-for="(file, fIdx) in files.filter(f => !f.error)" :key="'bill-'+fIdx" style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:14px;">
                         <!-- 文件标题行 -->
                         <div style="background:#f8fafc;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;border-bottom:1px solid #e2e8f0;">
                             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -732,14 +765,14 @@
                                     <tr v-if="file.bwCount > 0">
                                         <td><span class="bill-tag bill-tag-bw">黑白打印</span></td>
                                         <td>{{ file.bwCount }} 页</td>
-                                        <td>￥{{ config.bw.toFixed(4) }}/页</td>
-                                        <td style="text-align:right;font-weight:700;">￥{{ (file.bwCount * config.bw).toFixed(4) }}</td>
+                                        <td>￥{{ fmt(config.bw) }}/页</td>
+                                        <td style="text-align:right;font-weight:700;">￥{{ fmt(file.bwCount * config.bw) }}</td>
                                     </tr>
                                     <tr v-if="file.colCount > 0">
                                         <td><span class="bill-tag bill-tag-col">彩色打印</span></td>
                                         <td>{{ file.colCount }} 页</td>
-                                        <td>￥{{ config.color.toFixed(4) }}/页</td>
-                                        <td style="text-align:right;font-weight:700;">￥{{ (file.colCount * config.color).toFixed(4) }}</td>
+                                        <td>￥{{ fmt(config.color) }}/页</td>
+                                        <td style="text-align:right;font-weight:700;">￥{{ fmt(file.colCount * config.color) }}</td>
                                     </tr>
                                     <tr v-if="file.blankCount > 0 && config.blankPageFree">
                                         <td><span class="bill-tag bill-tag-blank">空白页</span></td>
@@ -755,35 +788,35 @@
                                             {{ getFileBillablePages(file) }} 页
                                             <span v-if="file.blankCount > 0 && config.blankPageFree" style="font-size:12px;color:#92400e;">（空白{{ file.blankCount }}页免费）</span>
                                         </td>
-                                        <td>￥{{ config.single.toFixed(4) }}/页</td>
-                                        <td style="text-align:right;font-weight:700;">￥{{ (getFileBillablePages(file) * config.single).toFixed(4) }}</td>
+                                        <td>￥{{ fmt(config.single) }}/页</td>
+                                        <td style="text-align:right;font-weight:700;">￥{{ fmt(getFileBillablePages(file) * config.single) }}</td>
                                     </tr>
                                 </template>
                                 <tr v-if="file.use80gPaper">
                                     <td>80g纸附加费</td>
                                     <td>{{ file.duplex ? Math.ceil(file.totalPages/2) : file.totalPages }} 张</td>
-                                    <td>￥{{ config.paperAdd80g.toFixed(4) }}/张</td>
-                                    <td style="text-align:right;font-weight:700;">￥{{ ((file.duplex ? Math.ceil(file.totalPages/2) : file.totalPages) * config.paperAdd80g).toFixed(4) }}</td>
+                                    <td>￥{{ fmt(config.paperAdd80g) }}/张</td>
+                                    <td style="text-align:right;font-weight:700;">￥{{ fmt((file.duplex ? Math.ceil(file.totalPages/2) : file.totalPages) * config.paperAdd80g) }}</td>
                                 </tr>
                                 <template v-if="file.selectedFees">
                                     <tr v-for="(fee, idx) in customFees" :key="'bfee-'+idx" v-show="file.selectedFees[idx]">
                                         <td>{{ fee.name }}</td>
                                         <td>{{ fee.type === 'perPage' ? file.totalPages + ' 页' : file.copies + ' 份' }}</td>
-                                        <td>￥{{ fee.price.toFixed(4) }}/{{ fee.type === 'perPage' ? '页' : '份' }}</td>
-                                        <td style="text-align:right;font-weight:700;">￥{{ (fee.type === 'perPage' ? file.totalPages * fee.price : file.copies * fee.price).toFixed(4) }}</td>
+                                        <td>￥{{ fmt(fee.price) }}/{{ fee.type === 'perPage' ? '页' : '份' }}</td>
+                                        <td style="text-align:right;font-weight:700;">￥{{ fmt(fee.type === 'perPage' ? file.totalPages * fee.price : file.copies * fee.price) }}</td>
                                     </tr>
                                 </template>
                                 <tr class="bill-subtotal">
                                     <td colspan="3" style="text-align:right;color:#475569;">单份小计</td>
-                                    <td style="text-align:right;">￥{{ calcFileSubtotal(file).toFixed(4) }}</td>
+                                    <td style="text-align:right;">￥{{ fmt(calcFileSubtotal(file)) }}</td>
                                 </tr>
                                 <tr v-if="file.copies > 1" class="bill-subtotal">
                                     <td colspan="3" style="text-align:right;color:#475569;">× {{ file.copies }} 份合计</td>
-                                    <td style="text-align:right;color:#1d4ed8;">￥{{ (calcFileSubtotal(file) * file.copies).toFixed(4) }}</td>
+                                    <td style="text-align:right;color:#1d4ed8;">￥{{ fmt(calcFileSubtotal(file) * file.copies) }}</td>
                                 </tr>
                                 <tr v-if="discountRate < 100" class="bill-subtotal">
                                     <td colspan="3" style="text-align:right;color:#475569;">折扣（{{ discountRate }}%）后</td>
-                                    <td style="text-align:right;color:#059669;font-size:15px;">￥{{ (calcFileFinalAmount(file) * file.copies).toFixed(4) }}</td>
+                                    <td style="text-align:right;color:#059669;font-size:15px;">￥{{ fmt(calcFileFinalAmount(file) * file.copies) }}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -795,52 +828,52 @@
                         <tbody>
                             <tr v-if="mixedBwPages > 0">
                                 <td>黑白打印费（分色）</td>
-                                <td>{{ mixedBwPages }} 页 × ￥{{ config.bw.toFixed(4) }}</td>
-                                <td style="text-align:right;font-weight:700;">￥{{ totalBwCost.toFixed(4) }}</td>
+                                <td>{{ mixedBwPages }} 页 × ￥{{ fmt(config.bw) }}</td>
+                                <td style="text-align:right;font-weight:700;">￥{{ fmt(totalBwCost) }}</td>
                             </tr>
                             <tr v-if="mixedColorPages > 0">
                                 <td>彩色打印费（分色）</td>
-                                <td>{{ mixedColorPages }} 页 × ￥{{ config.color.toFixed(4) }}</td>
-                                <td style="text-align:right;font-weight:700;">￥{{ totalColorCost.toFixed(4) }}</td>
+                                <td>{{ mixedColorPages }} 页 × ￥{{ fmt(config.color) }}</td>
+                                <td style="text-align:right;font-weight:700;">￥{{ fmt(totalColorCost) }}</td>
                             </tr>
                             <tr v-if="singlePages > 0">
                                 <td>统一计价打印费</td>
-                                <td>{{ singlePages }} 页 × ￥{{ config.single.toFixed(4) }}</td>
-                                <td style="text-align:right;font-weight:700;">￥{{ totalSingleCost.toFixed(4) }}</td>
+                                <td>{{ singlePages }} 页 × ￥{{ fmt(config.single) }}</td>
+                                <td style="text-align:right;font-weight:700;">￥{{ fmt(totalSingleCost) }}</td>
                             </tr>
                             <tr v-if="totalPaperAddCost > 0">
                                 <td>80g纸附加费</td>
                                 <td>{{ total80gSheets }} 张</td>
-                                <td style="text-align:right;font-weight:700;">￥{{ totalPaperAddCost.toFixed(4) }}</td>
+                                <td style="text-align:right;font-weight:700;">￥{{ fmt(totalPaperAddCost) }}</td>
                             </tr>
                             <tr v-for="(fee, idx) in customFeesTotal" :key="'cft-'+idx" v-show="fee.total > 0">
                                 <td>{{ fee.name }}</td>
                                 <td>—</td>
-                                <td style="text-align:right;font-weight:700;">￥{{ fee.total.toFixed(4) }}</td>
+                                <td style="text-align:right;font-weight:700;">￥{{ fmt(fee.total) }}</td>
                             </tr>
                             <tr style="background:#f8fafc;font-weight:700;border-top:2px solid #e2e8f0;">
                                 <td colspan="2" style="text-align:right;color:#475569;">原始合计</td>
-                                <td style="text-align:right;font-size:15px;">￥{{ formatAmount(totalStats.cost) }}</td>
+                                <td style="text-align:right;font-size:15px;">￥{{ fmt(totalStats.cost) }}</td>
                             </tr>
                             <tr v-if="discountRate < 100" style="background:#f0fdf4;font-weight:700;">
                                 <td colspan="2" style="text-align:right;color:#475569;">折扣（{{ discountRate }}%）</td>
-                                <td style="text-align:right;font-size:15px;color:#059669;">￥{{ formatAmount(discountAmount) }}</td>
+                                <td style="text-align:right;font-size:15px;color:#059669;">￥{{ fmt(discountAmount) }}</td>
                             </tr>
                             <tr v-if="isRounded" style="background:#f0fdf4;font-weight:700;">
                                 <td colspan="2" style="text-align:right;color:#475569;">抹零后</td>
-                                <td style="text-align:right;font-size:15px;color:#059669;">￥{{ formatAmount(afterRoundAmount) }}</td>
+                                <td style="text-align:right;font-size:15px;color:#059669;">￥{{ fmt(afterRoundAmount) }}</td>
                             </tr>
                             <tr v-if="adjustType && adjustHistory > 0" style="background:#f0fdf4;font-weight:700;">
                                 <td colspan="2" style="text-align:right;color:#475569;">{{ adjustType === 'add' ? '加价' : '减价' }}</td>
                                 <td style="text-align:right;font-size:15px;" :style="adjustType === 'add' ? 'color:#b91c1c' : 'color:#059669'">
-                                    {{ adjustType === 'add' ? '+' : '-' }}￥{{ adjustHistory.toFixed(2) }}
+                                    {{ adjustType === 'add' ? '+' : '-' }}￥{{ fmt(adjustHistory) }}
                                 </td>
                             </tr>
                         </tbody>
                     </table>
 
-                    <!-- 最终应付金额，将中文部分与数字Orbitron字体严格分离避免字体回退 -->
-                    <div class="bill-grand">应付金额：<span class="bill-grand-num">￥{{ formatAmount(finalAmount) }}</span></div>
+                    <!-- 最终应付金额 -->
+                    <div class="bill-grand">应付金额：<span class="bill-grand-num">￥{{ fmt(finalAmount) }}</span></div>
 
                     <!-- 底部操作按钮 -->
                     <div data-bill-actions style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;flex-wrap:wrap;">
@@ -867,8 +900,33 @@
 
 <script>
     // Vue 3 解构核心 API
-        const { createApp, ref, reactive, computed, onMounted, watch } = Vue;
-        pdfjsLib.GlobalWorkerOptions.workerSrc = './js/pdf.worker.min.js';
+        const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
+        // 使用 CDN Worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // 平滑数字动画 - 从旧值平滑过渡到新值
+        function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+        function smoothCount(el, toVal, duration, prefix, suffix, decimals) {
+            if (!el) return;
+            const fromVal = el._currentVal !== undefined ? el._currentVal : toVal;
+            if (Math.abs(toVal - fromVal) < 0.00001) { el._currentVal = toVal; return; }
+            if (el._animRaf) cancelAnimationFrame(el._animRaf);
+            const startTime = performance.now();
+            el._currentVal = toVal;
+            function tick(now) {
+                const t = Math.min((now - startTime) / duration, 1);
+                const cur = fromVal + (toVal - fromVal) * easeOutCubic(t);
+                el.textContent = prefix + cur.toFixed(decimals) + suffix;
+                if (t < 1) el._animRaf = requestAnimationFrame(tick);
+                else el.textContent = prefix + toVal.toFixed(decimals) + suffix;
+            }
+            el._animRaf = requestAnimationFrame(tick);
+        }
+
+        // animTick 在 calculateTotals 后递增，驱动所有平滑数字更新
+        const animTick = ref(0);
+        function triggerAnim() { animTick.value++; }
 
         const DEFAULT_CONFIG = {
             bw: 0.15, color: 0.5, single: 0.3, paperAdd80g: 0.05,
@@ -943,7 +1001,46 @@
                             e.preventDefault(); isDragging.value = true;
                         }
                     });
+
+                    // 监听 animTick 变化，对所有关键数字元素执行平滑过渡动画
+                    watch(animTick, () => {
+                        nextTick(() => {
+                            const s = window._vs; // Vue state 快照
+                            if (!s) return;
+                            const D = 600; // 金额动画时长(ms)
+                            const DP = 350; // 页数动画时长(ms)
+                            smoothCount(document.getElementById('disp-orig'),       s.totalStats.cost,         D,   '￥', '', 2);
+                            smoothCount(document.getElementById('disp-final'),      s.finalAmount,             D,   '￥', '', 2);
+                            smoothCount(document.getElementById('disp-bwcost'),     s.totalBwCost,             D,   '￥', '', 2);
+                            smoothCount(document.getElementById('disp-colcost'),    s.totalColorCost,          D,   '￥', '', 2);
+                            smoothCount(document.getElementById('disp-single'),     s.totalSingleCost,         D,   '￥', '', 2);
+                            smoothCount(document.getElementById('disp-extra'),      s.totalPaperAddCost + s.totalCustomFeesCost, D, '￥', '', 2);
+                            smoothCount(document.getElementById('disp-disc'),       s.discountAmount,          D,   '￥', '', 2);
+                            smoothCount(document.getElementById('disp-totalcost'),  s.paperCost + s.inkCost,   D,   '￥', '', 2);
+                            smoothCount(document.getElementById('disp-profitr'),    s.profitRate,              D,   '',  '%', 2);
+                            smoothCount(document.getElementById('disp-profita'),    Math.abs(s.profitAmount),  D,   s.profitAmount >= 0 ? '+￥' : '-￥', '', 2);
+                            smoothCount(document.getElementById('disp-tbw'),        s.totalBwPages,            DP,  '',  '', 0);
+                            smoothCount(document.getElementById('disp-tcol'),       s.totalColorPages,         DP,  '',  '', 0);
+                            smoothCount(document.getElementById('disp-tblk'),       s.totalBlankPages,         DP,  '',  '', 0);
+                            smoothCount(document.getElementById('disp-tall'),       s.totalBwPages + s.totalColorPages + s.totalBlankPages, DP, '', '', 0);
+                        });
+                    });
                 });
+
+                // 新的数字格式化机制：默认2位小数；如果有无法被忽略的小数会展示到4位（剔除多余的0）
+                const formatAmount = (num, maxDec = 4) => {
+                    const val = Number(num);
+                    if (isNaN(val)) return '0.00';
+                    let str = val.toFixed(maxDec); 
+                    let parts = str.split('.');
+                    if (parts.length === 1) return str + '.00';
+                    let decP = parts[1];
+                    // 只要小数点后超过两位，且结尾是'0'，就不停截掉'0'
+                    while (decP.length > 2 && decP.endsWith('0')) {
+                        decP = decP.slice(0, -1);
+                    }
+                    return parts[0] + '.' + decP;
+                };
 
                 const resetToDefault = () => {
                     Object.assign(config, DEFAULT_CONFIG);
@@ -998,8 +1095,6 @@
                     calculateFinalAmount();
                 };
 
-                const formatAmount = (num) => parseFloat(num).toFixed(4);
-
                 const getFileBillablePages = (file) => config.blankPageFree ? file.totalPages - (file.blankCount || 0) : file.totalPages;
 
                 const calcFileSubtotal = (file) => {
@@ -1046,6 +1141,9 @@
                     let totalCustomCost = 0;
 
                     files.value.forEach(file => {
+                        // 【取消 loading 阻断】让进度条执行中时动态计算更新数据
+                        if (file.error) return;
+
                         const copies = file.copies || 1;
                         bwPages += file.bwCount * copies;
                         colPages += file.colCount * copies;
@@ -1112,6 +1210,19 @@
                     totalStats.cost = totalCost;
                     discountAmount.value = totalCost * (discountRate.value / 100);
                     calculateFinalAmount();
+                    // 暴露响应式状态快照供平滑动画使用（在 calculateFinalAmount 之后读取最终值）
+                    window._vs = {
+                        totalStats: { cost: totalCost },
+                        finalAmount: finalAmount.value,
+                        totalBwCost: totalBwCost.value, totalColorCost: totalColorCost.value,
+                        totalSingleCost: totalSingleCost.value,
+                        totalPaperAddCost: totalPaperAddCost.value, totalCustomFeesCost: totalCustomFeesCost.value,
+                        discountAmount: discountAmount.value,
+                        paperCost: paperCost.value, inkCost: inkCost.value,
+                        profitRate: profitRate.value, profitAmount: profitAmount.value,
+                        totalBwPages: totalBwPages.value, totalColorPages: totalColorPages.value, totalBlankPages: totalBlankPages.value
+                    };
+                    triggerAnim(); // 触发数字平滑动画
                 };
 
                 const getFileStdPages = (file) => file.pages ? file.pages.reduce((sum, page) => sum + page.stdPages, 0) : 0;
@@ -1128,13 +1239,13 @@
                 const getFeeList = (file) => {
                     const parts =[];
                     const sheetsUsed = file.duplex ? Math.ceil(file.totalPages / 2) : file.totalPages;
-                    if (file.use80gPaper) parts.push({ label: '80g纸', detail: `￥${config.paperAdd80g.toFixed(4)}/张 × ${sheetsUsed}张`, cost: sheetsUsed * config.paperAdd80g });
+                    if (file.use80gPaper) parts.push({ label: '80g纸', detail: `￥${formatAmount(config.paperAdd80g)}/张 × ${sheetsUsed}张`, cost: sheetsUsed * config.paperAdd80g });
                     if (file.selectedFees) {
                         customFees.value.forEach((fee, idx) => {
                             if (file.selectedFees[idx]) {
                                 const qty = fee.type === 'perPage' ? file.totalPages : file.copies;
                                 const unit = fee.type === 'perPage' ? '页' : '份';
-                                parts.push({ label: fee.name, detail: `￥${fee.price.toFixed(4)}/${unit} × ${qty}${unit}`, cost: qty * fee.price });
+                                parts.push({ label: fee.name, detail: `￥${formatAmount(fee.price)}/${unit} × ${qty}${unit}`, cost: qty * fee.price });
                             }
                         });
                     }
@@ -1155,7 +1266,10 @@
                     return total;
                 };
                 
-                const getFileTotalCoverage = (file) => file.pages ? file.pages.reduce((sum, page) => sum + page.total, 0) / file.pages.length : 0;
+                const getFileTotalCoverage = (file) => {
+                    if (!file.pages || file.pages.length === 0) return 0;
+                    return file.pages.reduce((sum, page) => sum + page.total, 0) / file.pages.length;
+                };
 
                 const triggerUpload = () => document.getElementById('fileInput').click();
 
@@ -1224,14 +1338,16 @@
                             if (isBlank) fileObj.blankCount++;
                             else if (isColor) fileObj.colCount++;
                             else fileObj.bwCount++;
+                            
+                            // 更新解析进度，驱动进度条
                             fileObj.progress = i;
                         }
                         fileObj.loading = false;
-                        calculateTotals();
+                        calculateTotals(); // 最终保障总账单计算
                     } catch (err) {
                         console.error('处理PDF失败:', err);
                         fileObj.loading = false;
-                        fileObj.error = '解析失败，请检查文件是否损坏';
+                        fileObj.error = '解析失败，请检查文件是否损坏或其他错误';
                     }
                 };
 
@@ -1254,6 +1370,7 @@
 
                 const reanalyzeAll = () => {
                     files.value.forEach(file => {
+                        if (file.error) return; 
                         if (file.pages && file.pages.length > 0) {
                             file.bwCount = 0; file.colCount = 0; file.blankCount = 0;
                             file.pages.forEach(page => {
@@ -1410,6 +1527,7 @@
                     localStorage.setItem('printCalcCustomFees', JSON.stringify(customFees.value));
                 }, { deep: true });
                 
+                // 由于 Vue 监听了 deep file对象，在 processFile 时不断增改 count 与 push 会持续驱动 calculateTotals
                 watch(files, calculateTotals, { deep: true });
                 watch(discountRate, calculateTotals);
                 watch(customFees, calculateTotals, { deep: true });
@@ -1425,10 +1543,12 @@
                     paperCost, totalCmyk, totalStats, discountAmount, finalAmount, profitRate, profitAmount,
                     friendlyLinks, triggerUpload, hasDuplexFiles, showCostSection, showBillModal, isSavingImage,
                     handleUpload, onDragOver, onDragLeave, onDrop, removeFile, openImageModal, closeImageModal, clampTwoDecimals,
-                    clampNonNegative, resetDiscount, customRoundAmount, adjustPrice, resetAdjust, formatAmount, getFileStdPages,
+                    clampNonNegative, resetDiscount, customRoundAmount, adjustPrice, resetAdjust, 
+                    fmt: formatAmount, formatAmount, getFileStdPages,
                     getFileAvgCmyk, getFileTotalCoverage, getFeeList, getFeeTotal, reanalyzeAll, addCustomFee, removeCustomFee,
                     saveCustomFees, clampTwoDecimalsForFee, resetToDefault, calcFileSubtotal, calcFileFinalAmount,
-                    getFileBillablePages, printBill, saveBillAsImage, openImageInNewTab
+                    getFileBillablePages, printBill, saveBillAsImage, openImageInNewTab,
+                    animTick
                 };
             }
         }).mount('#app');
@@ -1448,6 +1568,4 @@
     Copyright © 2023-2026 Light All rights reserved. Powered by 
     <a href="https://kewu.cc" target="_blank" style="color:#4285f4; text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#2d70eb';this.style.textDecoration='underline'" onmouseout="this.style.color='#4285f4';this.style.textDecoration='none'" onmousedown="this.style.color='#1a56d9'">https://kewu.cc</a><br>
     计算可能不准确，使用
-    <a href="/ISO-19752-Standard-Printer-Black-and-White-Test-P.pdf" target="_blank" style="color:#4285f4; text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#2d70eb';this.style.textDecoration='underline'" onmouseout="this.style.color='#4285f4';this.style.textDecoration='none'" onmousedown="this.style.color='#1a56d9'">ISO-19752 黑白单页 5% 覆盖率标准测试文档</a> 校验<br>
-</div>
-</html>
+    <a href="/ISO-19752-Standard-Printer-Black-and-White-Test-P.pdf" target="_blank" style="color:#4285f4; text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#2d70eb';this.style.te
