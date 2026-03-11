@@ -228,11 +228,11 @@
                     </div>
                     <label class="flex items-center gap-2 mt-2 cursor-pointer">
                         <input type="checkbox" v-model="config.blankPageFree" @change="reanalyzeAll(); calculateTotals()" class="w-4 h-4">
-                        <span class="text-xs font-bold text-amber-700">空白页不计打印费（仍计纸张/墨水成本）</span>
+                        <span class="text-xs font-bold text-amber-700">空白页不计打印费（仍计纸张与墨水成本）</span>
                     </label>
                 </div>
                 <div class="flex flex-col">
-                    <span class="text-xs text-slate-600 font-bold mb-1">单色墨水 (元 / 5% 覆盖率页数)</span>
+                    <span class="text-xs text-slate-600 font-bold mb-1">单瓶墨水 (元 / 5% 覆盖率页数)</span>
                     <div class="flex items-center gap-2 flex-wrap">
                         <input v-model.number="config.inkPrice" type="number" step="0.01" min="0" placeholder="墨水单价" @change="clampTwoDecimals('inkPrice')" @blur="clampTwoDecimals('inkPrice')">
                         <span class="font-bold">/</span>
