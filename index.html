@@ -6,15 +6,12 @@
     <meta name="keywords" content="打印成本计算器,PDF页面覆盖率,打印售价测算,黑白彩色打印计价,80g纸附加费计算,打印利润率核算,CMYK覆盖率分析">
     <meta name="description" content="打印页覆盖率计算器，支持PDF文件CMYK覆盖率分析、黑白/彩色打印成本核算、70g/80g纸张成本计算、打印售价及利润率测算，明码标价无套路，适配打印店日常计价需求。">
     <meta name="author" content="打印成本测算工具">
- 
     <title>打印覆盖率计算器 | 打印成本/售价测算工具</title>
-    <!-- 使用公共 CDN 替换本地静态文件 -->
     <script src="https://unpkg.com/vue@3.3.4/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        /* 强制采用现代无衬线黑体 */
         * { font-family: inherit; }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -34,6 +31,28 @@
             color: #1e293b;
             background: #fff;
             min-width: 60px;
+        }
+        input.input-error {
+            border-color: #ef4444 !important;
+            background: #fef2f2 !important;
+            animation: shake 0.4s ease;
+        }
+        @keyframes shake {
+            0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)}
+        }
+        /* 除数为0警告横幅 */
+        .zero-divisor-banner {
+            background: #fef2f2;
+            border: 2px solid #ef4444;
+            border-radius: 8px;
+            padding: 10px 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            color: #b91c1c;
+            font-size: 14px;
         }
         .std-badge { background: #0f172a; color: #fff; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; }
         .formula-box { font-family: Consolas, "Courier New", "PingFang SC", "Microsoft YaHei", sans-serif; font-weight: 600; color: #020617; }
@@ -60,13 +79,7 @@
         .preview-img { width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; transition: transform 0.2s; }
         .preview-img:hover { transform: scale(1.02); }
         .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px; cursor: zoom-out; }
-        .modal-img {
-            max-width: 90vw;
-            max-height: 90vh;
-            object-fit: contain;
-            border: 4px solid #fff;
-            border-radius: 8px;
-        }
+        .modal-img { max-width: 90vw; max-height: 90vh; object-fit: contain; border: 4px solid #fff; border-radius: 8px; }
         .discount-btn { background: #3b82f6; color: white; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 14px; cursor: pointer; border: none; margin-left: 8px; }
         .discount-btn:hover { background: #2563eb; }
         .round-btn { background: #10b981; color: white; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 14px; cursor: pointer; border: none; margin-left: 4px; }
@@ -94,13 +107,21 @@
         .btn-toggle-cost:hover { background: #334155; }
         .blank-badge { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; }
         .blank-free { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
-        /* 统一文件头部 badge 样式 */
         .file-badge { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 4px; font-size: 14px; font-weight: 700; white-space: nowrap; }
         .file-badge-dark  { background: #0f172a; color: #fff; }
         .file-badge-gray  { background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; }
         .file-badge-blue  { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
         .file-badge-purple{ background: #f5f3ff; border: 1px solid #ddd6fe; color: #6d28d9; }
         .cmyk-inline { display: inline-flex; gap: 10px; flex-wrap: wrap; align-items: center; font-family: Consolas, "Courier New", "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 13px; font-weight: 700; }
+        /* 空白页计费模式选择器 */
+        .blank-mode-group { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+        .blank-mode-btn {
+            padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
+            border: 2px solid #e2e8f0; background: #fff; color: #64748b; cursor: pointer;
+            transition: all 0.15s;
+        }
+        .blank-mode-btn.active { border-color: #f59e0b; background: #fef3c7; color: #92400e; }
+        .blank-mode-btn:hover:not(.active) { border-color: #94a3b8; background: #f8fafc; }
         /* 顾客对账单弹窗 */
         .bill-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; z-index: 10001; padding: 16px; }
         .bill-modal  { background: #fff; border-radius: 12px; width: 100%; max-width: 680px; max-height: 92vh; overflow-y: auto; box-shadow: 0 24px 64px rgba(0,0,0,0.35); }
@@ -112,10 +133,8 @@
         .bill-table td { padding: 10px 12px; font-size: 14px; font-weight: 600; color: #1e293b; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
         .bill-table tr:last-child td { border-bottom: none; }
         .bill-subtotal td { background: #f8fafc; font-weight: 700; }
-        
         .bill-grand   { background: #0f172a; color: #9dff00; padding: 14px 20px; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; font-size: 26px; font-weight: 800; letter-spacing: 2px; text-align: center; margin: 16px 0 4px; }
         .bill-grand-num { font-family: 'Orbitron', monospace; letter-spacing: 2px; }
-        
         .bill-tag     { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 12px; font-weight: 700; }
         .bill-tag-bw  { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
         .bill-tag-col { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
@@ -129,16 +148,11 @@
         .btn-bill-print { background: #3b82f6; color: #fff; padding: 8px 20px; border-radius: 6px; font-weight: 700; font-size: 14px; cursor: pointer; border: none; }
         .btn-bill-img   { background: #8b5cf6; color: #fff; padding: 8px 20px; border-radius: 6px; font-weight: 700; font-size: 14px; cursor: pointer; border: none; }
         .btn-bill-img:disabled, .btn-bill-newtab:disabled { opacity: .6; cursor: not-allowed; }
-        
-        /* 覆盖 Tailwind font-mono，防止回退宋体 */
         .font-mono, [class*="font-mono"] {
             font-family: Consolas, "Courier New", "PingFang SC", "Microsoft YaHei", sans-serif !important;
         }
-        .smooth-num { transition: none; }
-
         @media (max-width: 768px) {
             .cmyk-grid { grid-template-columns: repeat(2, 1fr); }
-            .grid-cols-1 md\\:grid-cols-2 lg\\:grid-cols-4 { grid-template-columns: 1fr !important; }
             .formula-box { font-size: 12px; }
             .cost-card { padding: 12px; }
             body { padding: 8px !important; }
@@ -150,7 +164,7 @@
 <body class="p-4 md:p-6">
     <div id="app" class="max-w-[1600px] mx-auto w-full relative">
         
-        <!-- ================= 全屏拖拽遮罩层 ================= -->
+        <!-- 全屏拖拽遮罩层 -->
         <div 
             v-show="isDragging" 
             class="fixed inset-0 z-[10000] bg-blue-50/90 border-[12px] border-blue-500 flex flex-col items-center justify-center transition-opacity backdrop-blur-sm"
@@ -166,7 +180,6 @@
                 <p class="text-xl text-blue-600 font-medium">支持同时拖入多个文件</p>
             </div>
         </div>
-        <!-- ================= 遮罩层结束 ================= -->
 
         <div class="mb-4 rounded-lg bg-gradient-to-r from-slate-800 to-slate-600 text-white p-4 md:p-5 border border-slate-700">
             <div class="flex items-center gap-3 flex-wrap">
@@ -175,28 +188,33 @@
                 <button @click="resetToDefault" class="btn-reset ml-auto">重置默认配置</button>
             </div>
             <p class="text-sm mt-2 opacity-90">
-                支持将 PDF 文件拖拽到网页任意位置，逐页计算CMYK覆盖率并动态折算测算。当前正在自动累计计算数据。完全在本地运行，保护数据隐私。
-                
+                支持逐页计算 CMYK 覆盖率并动态折算测算。支持多个文件，可直接将 PDF 文件拖拽到网页任意位置，无需上传。保护数据隐私。
             </p>
-
-
+             <p class="text-sm mt-2 opacity-90">
+                 请勿分析过大文件
+            </p>
             <div class="flex items-center gap-2 mt-3">
-    <a href="https://github.com/qeqeq1/PrintCalc" target="_blank" 
-       class="friend-link font-bold">
-        🔗 在 GitHub 上开源
-    </a>
-    <span class="text-slate-400">·</span>
-    <a href="https://github.com/qeqeq1/PrintCalc/issues" target="_blank" 
-       class="friend-link">
-        反馈问题
-    </a>
-</div>
+                <a href="https://github.com/qeqeq1/PrintCalc" target="_blank" class="friend-link font-bold">🔗 在 GitHub 上开源</a>
+                <span class="text-slate-400">·</span>
+                <a href="https://github.com/qeqeq1/PrintCalc/issues" target="_blank" class="friend-link">反馈问题</a>
+            </div>
         </div>
         
+        <!-- ===== 除数为0全局警告横幅 ===== -->
+        <div v-if="zeroDivisorErrors.length > 0" class="zero-divisor-banner">
+            <span style="font-size:20px;">⚠️</span>
+            <div>
+                <div>以下字段的「除数」不能为 0，已自动修正为 1，请重新确认：</div>
+                <div style="margin-top:4px;font-size:13px;color:#dc2626;">
+                    <span v-for="(err, i) in zeroDivisorErrors" :key="i" style="margin-right:12px;">• {{ err }}</span>
+                </div>
+            </div>
+        </div>
+
         <!-- 配置区域 -->
         <header class="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-6 border border-slate-200">
-            <!-- 打印单价、各种参数配置 -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-4">
+                <!-- 打印单价 -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div class="flex flex-col">
                         <span class="text-xs text-slate-600 font-bold mb-1">黑白单价 (元/页)</span>
@@ -215,6 +233,8 @@
                         <input v-model.number="config.paperAdd80g" type="number" step="0.01" min="0" class="w-full" @change="clampTwoDecimals('paperAdd80g')" @blur="clampTwoDecimals('paperAdd80g')">
                     </div>
                 </div>
+
+                <!-- 阈值 + 空白页计费模式 -->
                 <div class="flex flex-col">
                     <span class="text-xs text-red-600 font-bold mb-1">彩色判定阈值 (CMY之和 > %)</span>
                     <div class="flex items-center gap-2 flex-wrap">
@@ -226,37 +246,83 @@
                         <input v-model.number="config.blankThreshold" type="number" step="0.01" min="0" class="w-full text-amber-600" @change="clampNonNegative('blankThreshold'); reanalyzeAll()" @blur="clampNonNegative('blankThreshold'); reanalyzeAll()">
                         <span class="text-xs text-slate-500 font-bold">% 自动重分析</span>
                     </div>
-                    <label class="flex items-center gap-2 mt-2 cursor-pointer">
-                        <input type="checkbox" v-model="config.blankPageFree" @change="reanalyzeAll(); calculateTotals()" class="w-4 h-4">
-                        <span class="text-xs font-bold text-amber-700">空白页不计打印费（仍计纸张/墨水成本）</span>
-                    </label>
-                </div>
-                <div class="flex flex-col">
-                    <span class="text-xs text-slate-600 font-bold mb-1">墨水定价 (元 / 5% 覆盖率标准A4页)</span>
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <input v-model.number="config.inkPrice" type="number" step="0.01" min="0" placeholder="墨水单价" @change="clampTwoDecimals('inkPrice')" @blur="clampTwoDecimals('inkPrice')">
-                        <span class="font-bold">/</span>
-                        <input v-model.number="config.inkYield" type="number" step="1" placeholder="标页产量">
+
+                    <!-- ===== 空白页计费模式（四选一） ===== -->
+                    <div class="mt-3">
+                        <span class="text-xs text-amber-700 font-bold block mb-1">空白页计费方式：</span>
+                        <div class="blank-mode-group">
+                            <button 
+                                v-for="opt in blankModeOptions" :key="opt.value"
+                                :class="['blank-mode-btn', config.blankPageMode === opt.value ? 'active' : '']"
+                                @click="config.blankPageMode = opt.value; reanalyzeAll(); calculateTotals()"
+                            >{{ opt.label }}</button>
+                        </div>
+                        <!-- 自定义金额输入 -->
+                        <div v-if="config.blankPageMode === 'custom'" class="flex items-center gap-2 mt-2">
+                            <span class="text-xs font-bold text-amber-700">自定义单价:</span>
+                            <input 
+                                v-model.number="config.blankCustomPrice" 
+                                type="number" step="0.01" min="0" 
+                                placeholder="元/页"
+                                style="max-width:90px;"
+                                @change="clampTwoDecimals('blankCustomPrice'); calculateTotals()"
+                                @blur="clampTwoDecimals('blankCustomPrice'); calculateTotals()"
+                            >
+                            <span class="text-xs text-slate-500">元/页</span>
+                        </div>
+                        <div class="text-xs text-slate-500 mt-1 font-bold">
+                            <span v-if="config.blankPageMode === 'free'">🆓 空白页不收打印费（仍计纸张与墨水成本）</span>
+                            <span v-else-if="config.blankPageMode === 'bw'">📄 空白页按黑白单价 ￥{{ fmt(config.bw) }}/页 收取</span>
+                            <span v-else-if="config.blankPageMode === 'single'">📄 空白页按均一价 ￥{{ fmt(config.single) }}/页 收取</span>
+                            <span v-else-if="config.blankPageMode === 'custom'">✏️ 空白页按自定义单价收取</span>
+                        </div>
                     </div>
                 </div>
+
+                <!-- 墨水 -->
+                <div class="flex flex-col">
+                    <span class="text-xs text-slate-600 font-bold mb-1">单瓶墨水 (元 / 5% 覆盖率页数)</span>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <input v-model.number="config.inkPrice" type="number" step="0.01" min="0" placeholder="墨水单价" 
+                            @change="clampTwoDecimals('inkPrice')" @blur="clampTwoDecimals('inkPrice')">
+                        <span class="font-bold">/</span>
+                        <input v-model.number="config.inkYield" type="number" step="1" placeholder="标页产量"
+                            :class="['', config.inkYield === 0 ? 'input-error' : '']"
+                            @change="validateDivisor('inkYield', '墨水标页产量')"
+                            @blur="validateDivisor('inkYield', '墨水标页产量')">
+                    </div>
+                    <span v-if="config.inkYield === 0" class="text-xs text-red-600 font-bold mt-1">⚠️ 产量不能为 0，已重置为 1</span>
+                </div>
+
+                <!-- 纸张成本 -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div class="flex flex-col">
                         <span class="text-xs text-slate-600 font-bold mb-1">70g纸成本</span>
                         <div class="flex items-center gap-2 flex-wrap">
-                            <input v-model.number="config.paper70gPrice" type="number" step="0.01" min="0" placeholder="金额(元)" @change="clampTwoDecimals('paper70gPrice')" @blur="clampTwoDecimals('paper70gPrice')">
+                            <input v-model.number="config.paper70gPrice" type="number" step="0.01" min="0" placeholder="金额(元)" 
+                                @change="clampTwoDecimals('paper70gPrice')" @blur="clampTwoDecimals('paper70gPrice')">
                             <span class="font-bold">/</span>
-                            <input v-model.number="config.paper70gQty" type="number" step="1" placeholder="张数">
+                            <input v-model.number="config.paper70gQty" type="number" step="1" placeholder="张数"
+                                :class="config.paper70gQty === 0 ? 'input-error' : ''"
+                                @change="validateDivisor('paper70gQty', '70g纸张数')"
+                                @blur="validateDivisor('paper70gQty', '70g纸张数')">
                             <span class="text-xs text-slate-500">张</span>
                         </div>
+                        <span v-if="config.paper70gQty === 0" class="text-xs text-red-600 font-bold mt-1">⚠️ 张数不能为 0，已重置为 1</span>
                     </div>
                     <div class="flex flex-col">
                         <span class="text-xs text-slate-600 font-bold mb-1">80g纸成本</span>
                         <div class="flex items-center gap-2 flex-wrap">
-                            <input v-model.number="config.paper80gPrice" type="number" step="0.01" min="0" placeholder="金额(元)" @change="clampTwoDecimals('paper80gPrice')" @blur="clampTwoDecimals('paper80gPrice')">
+                            <input v-model.number="config.paper80gPrice" type="number" step="0.01" min="0" placeholder="金额(元)" 
+                                @change="clampTwoDecimals('paper80gPrice')" @blur="clampTwoDecimals('paper80gPrice')">
                             <span class="font-bold">/</span>
-                            <input v-model.number="config.paper80gQty" type="number" step="1" placeholder="张数">
+                            <input v-model.number="config.paper80gQty" type="number" step="1" placeholder="张数"
+                                :class="config.paper80gQty === 0 ? 'input-error' : ''"
+                                @change="validateDivisor('paper80gQty', '80g纸张数')"
+                                @blur="validateDivisor('paper80gQty', '80g纸张数')">
                             <span class="text-xs text-slate-500">张</span>
                         </div>
+                        <span v-if="config.paper80gQty === 0" class="text-xs text-red-600 font-bold mt-1">⚠️ 张数不能为 0，已重置为 1</span>
                     </div>
                 </div>
             </div>
@@ -265,28 +331,11 @@
             <div class="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
                 <h4 class="text-sm font-bold text-slate-800 mb-3">自定义附加费（可选）</h4>
                 <div v-for="(fee, idx) in customFees" :key="idx" class="custom-fee-item">
-                    <input 
-                        v-model="fee.name" 
-                        type="text" 
-                        placeholder="附加费名称（如激光/装订）" 
-                        class="custom-fee-input"
-                        @blur="saveCustomFees"
-                    >
-                    <input 
-                        v-model.number="fee.price" 
-                        type="number" 
-                        step="0.01" 
-                        min="0" 
-                        placeholder="单价(元)" 
-                        class="custom-fee-input"
+                    <input v-model="fee.name" type="text" placeholder="附加费名称（如激光/装订）" class="custom-fee-input" @blur="saveCustomFees">
+                    <input v-model.number="fee.price" type="number" step="0.01" min="0" placeholder="单价(元)" class="custom-fee-input"
                         @change="clampTwoDecimalsForFee(idx); saveCustomFees()"
-                        @blur="clampTwoDecimalsForFee(idx); saveCustomFees()"
-                    >
-                    <select 
-                        v-model="fee.type" 
-                        class="fee-type-select"
-                        @change="saveCustomFees"
-                    >
+                        @blur="clampTwoDecimalsForFee(idx); saveCustomFees()">
+                    <select v-model="fee.type" class="fee-type-select" @change="saveCustomFees">
                         <option value="perPage">按每页收取</option>
                         <option value="perCopy">按每份收取</option>
                     </select>
@@ -320,7 +369,6 @@
                 </div>
 
                 <div v-show="showCostSection">
-                    <!-- 墨水成本 -->
                     <div class="mb-6">
                         <p class="text-xs text-slate-500 font-bold">墨水成本</p>
                         <div class="flex items-baseline gap-3 mb-2 flex-wrap">
@@ -328,13 +376,12 @@
                             <p class="text-sm text-slate-400">总折算标准A4页: {{ fmt(totalStandardPages) }}</p>
                         </div>
                         <p class="text-sm font-mono text-slate-600">
-                            墨水单页成本 : {{ fmt(config.inkPrice) }}元 ÷ {{ config.inkYield }}页 = {{ fmt(config.inkPrice/config.inkYield, 6) }}元/页
+                            墨水单页成本 : {{ fmt(config.inkPrice) }}元 ÷ {{ config.inkYield }}页 = {{ fmt(safeDiv(config.inkPrice, config.inkYield), 6) }}元/页
                         </p>
                         <p class="text-sm font-mono text-slate-600 mt-1">
-                            墨水总成本 : {{ fmt(totalStandardPages) }}页 × {{ fmt(config.inkPrice/config.inkYield, 6) }}元/页 = {{ fmt(inkCost) }}元
+                            墨水总成本 : {{ fmt(totalStandardPages) }}页 × {{ fmt(safeDiv(config.inkPrice, config.inkYield), 6) }}元/页 = {{ fmt(inkCost) }}元
                         </p>
                     </div>
-                    <!-- 纸张成本 -->
                     <div class="mb-6">
                         <p class="text-xs text-slate-500 font-bold">纸张成本</p>
                         <div class="flex items-baseline gap-3 mb-2 flex-wrap">
@@ -342,42 +389,28 @@
                             <p class="text-sm text-slate-400">70g:{{total70gSheets}}张 | 80g:{{total80gSheets}}张</p>
                         </div>
                         <p class="text-sm font-mono text-slate-600">
-                            70g单张成本 : {{ fmt(config.paper70gPrice) }}元 ÷ {{ config.paper70gQty }}张 = {{ fmt(config.paper70gPrice/config.paper70gQty, 6) }}元/张
+                            70g单张成本 : {{ fmt(config.paper70gPrice) }}元 ÷ {{ config.paper70gQty }}张 = {{ fmt(safeDiv(config.paper70gPrice, config.paper70gQty), 6) }}元/张
                         </p>
                         <p class="text-sm font-mono text-slate-600 mt-1">
-                            80g单张成本 : {{ fmt(config.paper80gPrice) }}元 ÷ {{ config.paper80gQty }}张 = {{ fmt(config.paper80gPrice/config.paper80gQty, 6) }}元/张
+                            80g单张成本 : {{ fmt(config.paper80gPrice) }}元 ÷ {{ config.paper80gQty }}张 = {{ fmt(safeDiv(config.paper80gPrice, config.paper80gQty), 6) }}元/张
                         </p>
                         <p class="text-sm font-mono text-slate-600 mt-1">
-                            纸张总成本 : ({{ total70gSheets }}张 × {{ fmt(config.paper70gPrice/config.paper70gQty, 6) }}元/张) + ({{ total80gSheets }}张 × {{ fmt(config.paper80gPrice/config.paper80gQty, 6) }}元/张) = {{ fmt(paperCost) }}元
+                            纸张总成本 : ({{ total70gSheets }}张 × {{ fmt(safeDiv(config.paper70gPrice, config.paper70gQty), 6) }}元/张) + ({{ total80gSheets }}张 × {{ fmt(safeDiv(config.paper80gPrice, config.paper80gQty), 6) }}元/张) = {{ fmt(paperCost) }}元
                         </p>
                         <p class="text-xs text-amber-600 font-bold mt-1" v-if="hasDuplexFiles">※ 双面打印文件的纸张数 = ⌈页数 ÷ 2⌉（向上取整）</p>
                     </div>
-                    <!-- CMYK标页明细 -->
                     <div class="mb-4">
                         <p class="text-xs text-slate-500 font-bold mb-3">CMYK标准页折算</p>
                         <div class="cmyk-grid">
-                            <div class="cmyk-item">
-                                <span class="cmyk-label">C</span>
-                                <span class="cmyk-value">{{ fmt(totalCmyk.c / 5) }}</span>
-                            </div>
-                            <div class="cmyk-item">
-                                <span class="cmyk-label">M</span>
-                                <span class="cmyk-value">{{ fmt(totalCmyk.m / 5) }}</span>
-                            </div>
-                            <div class="cmyk-item">
-                                <span class="cmyk-label">Y</span>
-                                <span class="cmyk-value">{{ fmt(totalCmyk.y / 5) }}</span>
-                            </div>
-                            <div class="cmyk-item">
-                                <span class="cmyk-label">K</span>
-                                <span class="cmyk-value">{{ fmt(totalCmyk.k / 5) }}</span>
-                            </div>
+                            <div class="cmyk-item"><span class="cmyk-label">C</span><span class="cmyk-value">{{ fmt(totalCmyk.c / 5) }}</span></div>
+                            <div class="cmyk-item"><span class="cmyk-label">M</span><span class="cmyk-value">{{ fmt(totalCmyk.m / 5) }}</span></div>
+                            <div class="cmyk-item"><span class="cmyk-label">Y</span><span class="cmyk-value">{{ fmt(totalCmyk.y / 5) }}</span></div>
+                            <div class="cmyk-item"><span class="cmyk-label">K</span><span class="cmyk-value">{{ fmt(totalCmyk.k / 5) }}</span></div>
                         </div>
                     </div>
                     
                     <div class="split-line border-slate-300"></div>
 
-                    <!-- 总成本和利润率 -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
                         <div>
                             <p class="text-xs text-slate-500 font-bold">总成本</p>
@@ -416,7 +449,12 @@
                     <span class="font-bold text-slate-100">打印总量统计：</span>
                     <span>黑白总计: <b class="text-cyan-400" id="disp-tbw">{{ totalBwPages }}</b> 页</span>
                     <span>彩色总计: <b class="text-pink-400" id="disp-tcol">{{ totalColorPages }}</b> 页</span>
-                    <span>空白总计: <b class="text-amber-400" id="disp-tblk">{{ totalBlankPages }}</b> 页{{ config.blankPageFree ? '（不计费）' : '（计费）' }}</span>
+                    <span>空白总计: <b class="text-amber-400" id="disp-tblk">{{ totalBlankPages }}</b> 页
+                        <span v-if="config.blankPageMode === 'free'">(不计费)</span>
+                        <span v-else-if="config.blankPageMode === 'bw'">(按黑白计费)</span>
+                        <span v-else-if="config.blankPageMode === 'single'">(按均一价计费)</span>
+                        <span v-else-if="config.blankPageMode === 'custom'">(按自定义价计费)</span>
+                    </span>
                     <span>所有总计: <b class="text-indigo-400" id="disp-tall">{{ totalBwPages + totalColorPages + totalBlankPages }}</b> 页</span>
                 </div>
 
@@ -426,19 +464,26 @@
                         <p class="text-lg font-bold text-cyan-400" id="disp-bwcost">￥{{ fmt(totalBwCost) }}</p>
                         <p class="text-xs font-mono text-slate-400">{{ mixedBwPages }} × {{ fmt(config.bw) }} =</p>
                     </div>
-                    
                     <div v-show="mixedColorPages > 0 || (mixedBwPages === 0 && mixedColorPages === 0 && singlePages === 0)" class="bg-slate-800 p-3 rounded-lg">
                         <p class="text-xs text-slate-300 font-bold">彩色打印费 (分色)</p>
                         <p class="text-lg font-bold text-pink-400" id="disp-colcost">￥{{ fmt(totalColorCost) }}</p>
                         <p class="text-xs font-mono text-slate-400">{{ mixedColorPages }} × {{ fmt(config.color) }} =</p>
                     </div>
-                    
                     <div v-show="singlePages > 0" class="bg-slate-800 p-3 rounded-lg">
                         <p class="text-xs text-slate-300 font-bold">单一计价打印费</p>
                         <p class="text-lg font-bold text-indigo-400" id="disp-single">￥{{ fmt(totalSingleCost) }}</p>
                         <p class="text-xs font-mono text-slate-400">{{ singlePages }} × {{ fmt(config.single) }} =</p>
                     </div>
-
+                    <div v-show="totalBlankCost > 0" class="bg-slate-800 p-3 rounded-lg">
+                        <p class="text-xs text-slate-300 font-bold">空白页打印费</p>
+                        <p class="text-lg font-bold text-amber-400">￥{{ fmt(totalBlankCost) }}</p>
+                        <p class="text-xs font-mono text-slate-400">
+                            {{ totalBlankPages }} 页 × ￥{{ fmt(blankUnitPrice) }}/页
+                            <span v-if="config.blankPageMode === 'bw'">(按黑白价)</span>
+                            <span v-else-if="config.blankPageMode === 'single'">(按均一价)</span>
+                            <span v-else-if="config.blankPageMode === 'custom'">(自定义)</span>
+                        </p>
+                    </div>
                     <div class="bg-slate-800 p-3 rounded-lg">
                         <p class="text-xs text-slate-300 font-bold">各项附加费合计</p>
                         <p class="text-lg font-bold text-yellow-400" id="disp-extra">￥{{ fmt(totalPaperAddCost + totalCustomFeesCost) }}</p>
@@ -450,7 +495,6 @@
                             <span v-if="(totalPaperAddCost + totalCustomFeesCost) === 0">无附加费</span>
                         </div>
                     </div>
-                    
                     <div class="bg-slate-800 p-3 rounded-lg">
                         <p class="text-xs text-slate-300 font-bold">折扣后金额</p>
                         <p class="text-lg font-bold text-green-400" id="disp-disc">￥{{ fmt(discountAmount) }}</p>
@@ -511,7 +555,6 @@
                 </div>
             </div>
         </section>
-       
 
         <!-- 打印结算明细清单 -->
         <section class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden mb-6 w-full">
@@ -521,7 +564,6 @@
             <div class="p-4 md:p-6">
                 <div v-for="(file, fIdx) in files" :key="fIdx" class="mb-4 p-4 bg-slate-50 rounded-lg">
                     
-                    <!-- ====== 文件标题与信息概览（常驻显示） ====== -->
                     <div class="flex flex-wrap justify-between items-center mb-3">
                         <div class="flex flex-col gap-2">
                             <div class="flex items-center gap-2 flex-wrap">
@@ -530,13 +572,19 @@
                                 <span class="file-badge file-badge-gray">物理页数: {{ file.totalPages }}</span>
                                 <span class="file-badge" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;border-radius:4px;">黑白: {{ file.bwCount }} 张</span>
                                 <span class="file-badge" style="background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:4px;">彩色: {{ file.colCount }} 张</span>
-                                <span v-if="file.blankCount > 0" class="file-badge" style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:4px;">空白: {{ file.blankCount }} 张{{ config.blankPageFree ? '(免费)' : '' }}</span>
+                                <span v-if="file.blankCount > 0" class="file-badge" style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:4px;">
+                                    空白: {{ file.blankCount }} 张
+                                    <span v-if="config.blankPageMode === 'free'">(免费)</span>
+                                    <span v-else-if="config.blankPageMode === 'bw'">(按黑白)</span>
+                                    <span v-else-if="config.blankPageMode === 'single'">(均一价)</span>
+                                    <span v-else-if="config.blankPageMode === 'custom'">(自定义)</span>
+                                </span>
                                 <span v-if="file.duplex" class="file-badge file-badge-purple">
                                     双面 · 用纸: {{ Math.ceil(file.totalPages / 2) }} 张
                                 </span>
                             </div>
                             <div class="cmyk-inline">
-                                <span class="cmyk-unified-badge" style="display:inline-flex;align-items:center;gap:0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;font-family:Consolas,"Courier New","PingFang SC","Microsoft YaHei",sans-serif;font-size:12px;font-weight:700;">
+                                <span style="display:inline-flex;align-items:center;gap:0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;font-family:Consolas,'Courier New','PingFang SC','Microsoft YaHei',sans-serif;font-size:12px;font-weight:700;">
                                     <span style="padding:3px 8px;color:#0e7490;background:#ecfeff;">C: {{ fmt(getFileAvgCmyk(file).c) }}%</span>
                                     <span style="width:1px;background:#e2e8f0;align-self:stretch;"></span>
                                     <span style="padding:3px 8px;color:#be185d;background:#fdf2f8;">M: {{ fmt(getFileAvgCmyk(file).m) }}%</span>
@@ -557,7 +605,6 @@
                         </div>
                     </div>
 
-                    <!-- ====== 文件正在解析时的内嵌进度条 ====== -->
                     <div v-if="file.loading" class="mb-3 bg-blue-50 p-3 rounded-lg border border-blue-200">
                         <div class="flex justify-between items-center mb-2 text-sm font-bold text-blue-700">
                             <span class="flex items-center gap-2">
@@ -573,14 +620,12 @@
                             <div class="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out" :style="{ width: (file.progressTotal ? ((file.progress / file.progressTotal) * 100) : 0) + '%' }"></div>
                         </div>
                     </div>
-                    <!-- ====== 解析失败的报错信息 ====== -->
                     <div v-else-if="file.error" class="mb-3 bg-red-50 p-3 rounded-lg border border-red-200 text-sm">
                         <div class="text-red-600 font-bold mb-1">⚠️ 解析出现异常: {{ file.error }}</div>
                     </div>
 
                     <div class="split-line mb-3"></div>
 
-                    <!-- ====== 配置与选项区 ====== -->
                     <div class="flex flex-wrap items-center gap-4 mb-4">
                         <div class="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded">
                             <label class="text-sm font-bold">份数:</label>
@@ -601,12 +646,10 @@
                             <input type="checkbox" v-model="file.duplex" class="w-4 h-4"> 
                             <span class="text-sm font-bold text-purple-700">双面打印（纸张量减半）</span>
                         </label>
-                        
                         <label v-for="(fee, idx) in customFees" :key="'fee-' + idx" class="flex items-center gap-1 cursor-pointer mt-2 sm:mt-0">
                             <input type="checkbox" v-model="file.selectedFees[idx]" class="w-4 h-4"> 
                             <span class="text-sm font-bold">{{ fee.name }}（{{ fmt(fee.price) }}元/{{ fee.type === 'perPage' ? '页' : '份' }}）</span>
                         </label>
-                        
                         <button @click="removeFile(fIdx)" class="btn-remove ml-auto">移除文件</button>
                     </div>
 
@@ -614,19 +657,21 @@
                         <div class="flex justify-between flex-wrap">
                             <span>打印费：</span>
                             <span v-if="file.mode === 'mixed'">
-                                <template v-if="config.blankPageFree && file.blankCount > 0">
-                                    黑白：{{ file.bwCount }}张×{{ fmt(config.bw) }}元/张={{ fmt(file.bwCount*config.bw) }}元 + 彩色：{{ file.colCount }}张×{{ fmt(config.color) }}元/张={{ fmt(file.colCount*config.color) }}元 + 空白：{{ file.blankCount }}张×0元 = 合计：{{ fmt(file.bwCount*config.bw + file.colCount*config.color) }}元
+                                黑白：{{ file.bwCount }}张×{{ fmt(config.bw) }}元={{ fmt(file.bwCount*config.bw) }}元 + 彩色：{{ file.colCount }}张×{{ fmt(config.color) }}元={{ fmt(file.colCount*config.color) }}元
+                                <template v-if="file.blankCount > 0">
+                                    + 空白：{{ file.blankCount }}张×{{ fmt(blankUnitPrice) }}元={{ fmt(file.blankCount*blankUnitPrice) }}元
+                                    <span v-if="config.blankPageMode !== 'free'" class="text-amber-600">({{ blankModeLabel }})</span>
+                                    <span v-else class="text-green-600">(免费)</span>
                                 </template>
-                                <template v-else>
-                                    黑白：{{ file.bwCount }}张×{{ fmt(config.bw) }}元/张={{ fmt(file.bwCount*config.bw) }}元 + 彩色：{{ file.colCount }}张×{{ fmt(config.color) }}元/张={{ fmt(file.colCount*config.color) }}元 = 合计：{{ fmt(file.bwCount*config.bw + file.colCount*config.color) }}元
-                                </template>
+                                = 合计：{{ fmt(calcFilePrintCost(file)) }}元
                             </span>
                             <span v-else>
-                                <template v-if="config.blankPageFree && file.blankCount > 0">
-                                    {{ file.totalPages - file.blankCount }}张×{{ fmt(config.single) }}元/张={{ fmt((file.totalPages-file.blankCount)*config.single) }}元（空白{{ file.blankCount }}张免费）
+                                {{ file.totalPages }}张×{{ fmt(config.single) }}元={{ fmt(file.totalPages*config.single) }}元
+                                <template v-if="file.blankCount > 0 && config.blankPageMode !== 'free' && config.blankPageMode !== 'single'">
+                                    （空白{{ file.blankCount }}张实际按{{ blankModeLabel }}计费）
                                 </template>
-                                <template v-else>
-                                    {{ file.totalPages }}张×{{ fmt(config.single) }}元/张={{ fmt(file.totalPages*config.single) }}元
+                                <template v-else-if="file.blankCount > 0 && config.blankPageMode === 'free'">
+                                    （空白{{ file.blankCount }}张免费，实际计{{ file.totalPages - file.blankCount }}张）
                                 </template>
                             </span>
                         </div>
@@ -664,7 +709,7 @@
                                     <div class="space-y-2 font-bold text-sm">
                                         <div class="flex justify-between items-center pb-1 border-b border-slate-100">
                                             <span :class="page.isBlank ? 'text-amber-500' : (page.isColor ? 'text-red-600' : 'text-slate-500')">
-                                                {{ page.isBlank ? (config.blankPageFree ? '空白页(免费)' : '空白页(计费)') : (page.isColor ? '彩色页' : '黑白页') }}
+                                                {{ page.isBlank ? (config.blankPageMode === 'free' ? '空白页(免费)' : '空白页(计费)') : (page.isColor ? '彩色页' : '黑白页') }}
                                             </span>
                                             <span class="text-xs text-slate-400">第 {{pIdx+1}} 页</span>
                                         </div>
@@ -681,9 +726,7 @@
                                             </div>
                                             <div class="flex justify-between items-center text-blue-700">
                                                 <span>折算标页:</span>
-                                                <span :class="{'bg-red-500 text-white px-1 rounded': page.stdPages > 1.5}">
-                                                    {{ fmt(page.stdPages) }}
-                                                </span>
+                                                <span :class="{'bg-red-500 text-white px-1 rounded': page.stdPages > 1.5}">{{ fmt(page.stdPages) }}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -700,11 +743,10 @@
                 <h2 class="text-xl font-bold">联系与友情链接</h2>
             </div>
             <div class="p-4 md:p-6 text-sm">
-                 <div class="mt-4 p-6 border-2 border-dashed border-slate-300 rounded text-center text-slate-700 font-bold">
+                <div class="mt-4 p-6 border-2 border-dashed border-slate-300 rounded text-center text-slate-700 font-bold">
                     广告位招租（欢迎邮件联系）
-                </div> 
-                
-                <p class="mb-2">联系方式：admin@01r.cc</a> </p>
+                </div>
+                <p class="mb-2">联系方式：admin@01r.cc</p>
                 <div class="flex flex-wrap gap-3">
                     <a v-for="link in friendlyLinks" :key="link.url" :href="link.url" target="_blank" class="friend-link" :title="link.title || link.url">
                         {{ link.title || link.url }}
@@ -716,7 +758,6 @@
         <!-- 顾客对账单弹窗 -->
         <div v-if="showBillModal" class="bill-backdrop" @click.self="showBillModal = false">
             <div class="bill-modal" id="billModal">
-                <!-- 弹窗头部 -->
                 <div class="bill-head">
                     <div class="flex items-center justify-between">
                         <div>
@@ -728,12 +769,10 @@
                 </div>
 
                 <div class="bill-body">
-                    <!-- 全局统计摘要 -->
                     <div class="bill-section-title">打印总量摘要</div>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:4px;">
                         <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center;">
                             <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:4px;">文件数</div>
-                            <!-- 仅展示成功或正在解析的文件，过滤错误 -->
                             <div style="font-size:22px;font-weight:800;color:#1e293b;">{{ files.filter(f => !f.error).length }}</div>
                         </div>
                         <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;text-align:center;">
@@ -745,7 +784,9 @@
                             <div style="font-size:22px;font-weight:800;color:#b91c1c;">{{ totalColorPages }}</div>
                         </div>
                         <div v-if="totalBlankPages > 0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;text-align:center;">
-                            <div style="font-size:11px;color:#d97706;font-weight:700;margin-bottom:4px;">空白页(免费)</div>
+                            <div style="font-size:11px;color:#d97706;font-weight:700;margin-bottom:4px;">
+                                空白页<span v-if="config.blankPageMode === 'free'">(免费)</span><span v-else>(计费)</span>
+                            </div>
                             <div style="font-size:22px;font-weight:800;color:#92400e;">{{ totalBlankPages }}</div>
                         </div>
                         <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;text-align:center;">
@@ -754,11 +795,8 @@
                         </div>
                     </div>
 
-                    <!-- 逐文件明细 -->
                     <div class="bill-section-title">逐文件计费明细</div>
-                    <!-- 过滤掉错误的文件 -->
                     <div v-for="(file, fIdx) in files.filter(f => !f.error)" :key="'bill-'+fIdx" style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:14px;">
-                        <!-- 文件标题行 -->
                         <div style="background:#f8fafc;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;border-bottom:1px solid #e2e8f0;">
                             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                                 <span style="font-weight:800;font-size:15px;color:#0f172a;">{{ fIdx+1 }}. {{ file.name }}</span>
@@ -768,14 +806,10 @@
                             </div>
                             <span style="font-size:17px;font-weight:800;color:#1d4ed8;">× {{ file.copies }} 份</span>
                         </div>
-                        <!-- 文件详情表 -->
                         <table class="bill-table">
                             <thead>
                                 <tr>
-                                    <th>项目</th>
-                                    <th>数量</th>
-                                    <th>单价</th>
-                                    <th style="text-align:right;">小计</th>
+                                    <th>项目</th><th>数量</th><th>单价</th><th style="text-align:right;">小计</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -792,22 +826,30 @@
                                         <td>￥{{ fmt(config.color) }}/页</td>
                                         <td style="text-align:right;font-weight:700;">￥{{ fmt(file.colCount * config.color) }}</td>
                                     </tr>
-                                    <tr v-if="file.blankCount > 0 && config.blankPageFree">
+                                    <tr v-if="file.blankCount > 0">
                                         <td><span class="bill-tag bill-tag-blank">空白页</span></td>
                                         <td>{{ file.blankCount }} 页</td>
-                                        <td>免费</td>
-                                        <td style="text-align:right;font-weight:700;color:#92400e;">￥0.00</td>
+                                        <td>
+                                            <span v-if="config.blankPageMode === 'free'">免费</span>
+                                            <span v-else>￥{{ fmt(blankUnitPrice) }}/页 ({{ blankModeLabel }})</span>
+                                        </td>
+                                        <td style="text-align:right;font-weight:700;">
+                                            <span v-if="config.blankPageMode === 'free'" style="color:#92400e;">￥0.00</span>
+                                            <span v-else>￥{{ fmt(file.blankCount * blankUnitPrice) }}</span>
+                                        </td>
                                     </tr>
                                 </template>
                                 <template v-else>
                                     <tr>
                                         <td>统一计价打印</td>
                                         <td>
-                                            {{ getFileBillablePages(file) }} 页
-                                            <span v-if="file.blankCount > 0 && config.blankPageFree" style="font-size:12px;color:#92400e;">（空白{{ file.blankCount }}页免费）</span>
+                                            {{ file.mode === 'single' && config.blankPageMode === 'free' ? file.totalPages - file.blankCount : file.totalPages }} 页
+                                            <span v-if="file.blankCount > 0 && config.blankPageMode === 'free'" style="font-size:12px;color:#92400e;">（空白{{ file.blankCount }}页免费）</span>
                                         </td>
                                         <td>￥{{ fmt(config.single) }}/页</td>
-                                        <td style="text-align:right;font-weight:700;">￥{{ fmt(getFileBillablePages(file) * config.single) }}</td>
+                                        <td style="text-align:right;font-weight:700;">
+                                            ￥{{ fmt((file.mode === 'single' && config.blankPageMode === 'free' ? file.totalPages - file.blankCount : file.totalPages) * config.single) }}
+                                        </td>
                                     </tr>
                                 </template>
                                 <tr v-if="file.use80gPaper">
@@ -840,7 +882,6 @@
                         </table>
                     </div>
 
-                    <!-- 汇总计费明细 -->
                     <div class="bill-section-title">汇总计费</div>
                     <table class="bill-table" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
                         <tbody>
@@ -853,6 +894,11 @@
                                 <td>彩色打印费（分色）</td>
                                 <td>{{ mixedColorPages }} 页 × ￥{{ fmt(config.color) }}</td>
                                 <td style="text-align:right;font-weight:700;">￥{{ fmt(totalColorCost) }}</td>
+                            </tr>
+                            <tr v-if="totalBlankCost > 0">
+                                <td>空白页打印费（{{ blankModeLabel }}）</td>
+                                <td>{{ totalBlankPages }} 页 × ￥{{ fmt(blankUnitPrice) }}</td>
+                                <td style="text-align:right;font-weight:700;">￥{{ fmt(totalBlankCost) }}</td>
                             </tr>
                             <tr v-if="singlePages > 0">
                                 <td>统一计价打印费</td>
@@ -890,10 +936,8 @@
                         </tbody>
                     </table>
 
-                    <!-- 最终应付金额 -->
                     <div class="bill-grand">应付金额：<span class="bill-grand-num">￥{{ fmt(finalAmount) }}</span></div>
 
-                    <!-- 底部操作按钮 -->
                     <div data-bill-actions style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;flex-wrap:wrap;">
                         <button @click="showBillModal = false" class="btn-bill-close">关闭</button>
                         <button @click="openImageInNewTab" class="btn-bill-newtab" :disabled="isSavingImage">
@@ -917,660 +961,691 @@
     </div>
 
 <script>
-    // Vue 3 解构核心 API
-        const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
-        // 使用 CDN Worker
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        // 平滑数字动画 - 从旧值平滑过渡到新值
-        function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
 
-        function smoothCount(el, toVal, duration, prefix, suffix, decimals) {
-            if (!el) return;
-            const fromVal = el._currentVal !== undefined ? el._currentVal : toVal;
-            if (Math.abs(toVal - fromVal) < 0.00001) { el._currentVal = toVal; return; }
-            if (el._animRaf) cancelAnimationFrame(el._animRaf);
-            const startTime = performance.now();
-            el._currentVal = toVal;
-            function tick(now) {
-                const t = Math.min((now - startTime) / duration, 1);
-                const cur = fromVal + (toVal - fromVal) * easeOutCubic(t);
-                el.textContent = prefix + cur.toFixed(decimals) + suffix;
-                if (t < 1) el._animRaf = requestAnimationFrame(tick);
-                else el.textContent = prefix + toVal.toFixed(decimals) + suffix;
-            }
-            el._animRaf = requestAnimationFrame(tick);
+    function smoothCount(el, toVal, duration, prefix, suffix, decimals) {
+        if (!el) return;
+        const fromVal = el._currentVal !== undefined ? el._currentVal : toVal;
+        if (Math.abs(toVal - fromVal) < 0.00001) { el._currentVal = toVal; return; }
+        if (el._animRaf) cancelAnimationFrame(el._animRaf);
+        const startTime = performance.now();
+        el._currentVal = toVal;
+        function tick(now) {
+            const t = Math.min((now - startTime) / duration, 1);
+            const cur = fromVal + (toVal - fromVal) * easeOutCubic(t);
+            el.textContent = prefix + cur.toFixed(decimals) + suffix;
+            if (t < 1) el._animRaf = requestAnimationFrame(tick);
+            else el.textContent = prefix + toVal.toFixed(decimals) + suffix;
         }
-
-        // animTick 在 calculateTotals 后递增，驱动所有平滑数字更新
-        const animTick = ref(0);
-        function triggerAnim() { animTick.value++; }
-
-        const DEFAULT_CONFIG = {
-            bw: 0.15, color: 0.5, single: 0.3, paperAdd80g: 0.05,
-            colorThreshold: 0.8, blankThreshold: 0.5, blankPageFree: true,
-            inkPrice: 0, inkYield: 10,
-            paper70gPrice: 0, paper70gQty: 1, paper80gPrice: 0, paper80gQty: 1
-        };
-
-        const DEFAULT_CUSTOM_FEES =[
-            { name: '激光打印', price: 0.1, type: 'perPage' },
-            { name: '装订', price: 0.2, type: 'perCopy' }
-        ];
-
-        createApp({
-            setup() {
-                const savedConfig = localStorage.getItem('printCalcConfig');
-                const parsedConfig = savedConfig ? JSON.parse(savedConfig) : {};
-                const config = reactive({ ...DEFAULT_CONFIG, ...parsedConfig });
-
-                const savedFees = localStorage.getItem('printCalcCustomFees');
-                const customFees = ref(savedFees ? JSON.parse(savedFees) : DEFAULT_CUSTOM_FEES);
-
-                const discountRate = ref(100); 
-                const roundPrecision = ref('0.01'); 
-                const isRounded = ref(false); 
-                const afterRoundAmount = ref(0); 
-                const adjustAmount = ref(0); 
-                const adjustType = ref(''); 
-                const adjustHistory = ref(0); 
-                const showCostSection = ref(true);
-                const showBillModal = ref(false); 
-                const isSavingImage = ref(false);
-
-                const files = ref([]);
-                const isDragging = ref(false);
-                const modalImgUrl = ref('');
-                
-                const total70gSheets = ref(0); const total80gSheets = ref(0);
-                const total70gPages = ref(0); const total80gPages = ref(0);
-                const totalBwPages = ref(0); const totalColorPages = ref(0); const totalBlankPages = ref(0);
-                const mixedBwPages = ref(0); const mixedColorPages = ref(0); const singlePages = ref(0); 
-                
-                const totalBwCost = ref(0); const totalColorCost = ref(0); const totalSingleCost = ref(0); 
-                const totalPaperAddCost = ref(0); const totalCustomFeesCost = ref(0); 
-                const customFeesTotal = ref([]); const totalStandardPages = ref(0);
-                const inkCost = ref(0); const paperCost = ref(0);
-                const totalCmyk = ref({ c: 0, m: 0, y: 0, k: 0 });
-                const totalStats = reactive({ cost: 0 });
-                const discountAmount = ref(0); const finalAmount = ref(0);
-                const profitRate = ref(0); const profitAmount = ref(0);
-
-                const hasDuplexFiles = computed(() => files.value.some(f => f.duplex));
-
-                const friendlyLinks = ref([
-                    { url: 'https://www.kewu.cc', title: '匿名\'s blog' },
-                    { url: 'https://www.subrecovery.top', title: '异次元通讯-次元复苏' },
-                    { url: 'https://njust.wiki', title: '' },
-                    { url: 'https://id5.fun', title: '' }
-                ]);
-
-                const roundPrecisionLabel = computed(() => {
-                    const labels = { '0.01': '0.01元（分）', '0.1': '0.1元（角）', '1': '1元（元）', '10': '10元（十元）' };
-                    return labels[roundPrecision.value] || '0.01元（分）';
-                });
-
-                onMounted(() => {
-                    calculateTotals();
-                    window.addEventListener('dragover', (e) => e.preventDefault());
-                    window.addEventListener('drop', (e) => { e.preventDefault(); isDragging.value = false; });
-                    window.addEventListener('dragenter', (e) => {
-                        if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
-                            e.preventDefault(); isDragging.value = true;
-                        }
-                    });
-
-                    // 监听 animTick 变化，对所有关键数字元素执行平滑过渡动画
-                    watch(animTick, () => {
-                        nextTick(() => {
-                            const s = window._vs; // Vue state 快照
-                            if (!s) return;
-                            const D = 600; // 金额动画时长(ms)
-                            const DP = 350; // 页数动画时长(ms)
-                            smoothCount(document.getElementById('disp-orig'),       s.totalStats.cost,         D,   '￥', '', 2);
-                            smoothCount(document.getElementById('disp-final'),      s.finalAmount,             D,   '￥', '', 2);
-                            smoothCount(document.getElementById('disp-bwcost'),     s.totalBwCost,             D,   '￥', '', 2);
-                            smoothCount(document.getElementById('disp-colcost'),    s.totalColorCost,          D,   '￥', '', 2);
-                            smoothCount(document.getElementById('disp-single'),     s.totalSingleCost,         D,   '￥', '', 2);
-                            smoothCount(document.getElementById('disp-extra'),      s.totalPaperAddCost + s.totalCustomFeesCost, D, '￥', '', 2);
-                            smoothCount(document.getElementById('disp-disc'),       s.discountAmount,          D,   '￥', '', 2);
-                            smoothCount(document.getElementById('disp-totalcost'),  s.paperCost + s.inkCost,   D,   '￥', '', 2);
-                            smoothCount(document.getElementById('disp-profitr'),    s.profitRate,              D,   '',  '%', 2);
-                            smoothCount(document.getElementById('disp-profita'),    Math.abs(s.profitAmount),  D,   s.profitAmount >= 0 ? '+￥' : '-￥', '', 2);
-                            smoothCount(document.getElementById('disp-tbw'),        s.totalBwPages,            DP,  '',  '', 0);
-                            smoothCount(document.getElementById('disp-tcol'),       s.totalColorPages,         DP,  '',  '', 0);
-                            smoothCount(document.getElementById('disp-tblk'),       s.totalBlankPages,         DP,  '',  '', 0);
-                            smoothCount(document.getElementById('disp-tall'),       s.totalBwPages + s.totalColorPages + s.totalBlankPages, DP, '', '', 0);
-                        });
-                    });
-                });
-
-                // 新的数字格式化机制：默认2位小数；如果有无法被忽略的小数会展示到4位（剔除多余的0）
-                const formatAmount = (num, maxDec = 4) => {
-                    const val = Number(num);
-                    if (isNaN(val)) return '0.00';
-                    let str = val.toFixed(maxDec); 
-                    let parts = str.split('.');
-                    if (parts.length === 1) return str + '.00';
-                    let decP = parts[1];
-                    // 只要小数点后超过两位，且结尾是'0'，就不停截掉'0'
-                    while (decP.length > 2 && decP.endsWith('0')) {
-                        decP = decP.slice(0, -1);
-                    }
-                    return parts[0] + '.' + decP;
-                };
-
-                const resetToDefault = () => {
-                    Object.assign(config, DEFAULT_CONFIG);
-                    customFees.value =[...DEFAULT_CUSTOM_FEES];
-                    discountRate.value = 100; roundPrecision.value = '0.01'; isRounded.value = false;
-                    afterRoundAmount.value = 0; adjustAmount.value = 0; adjustType.value = ''; adjustHistory.value = 0;
-                    calculateTotals();
-                };
-
-                const addCustomFee = () => customFees.value.push({ name: '新附加费', price: 0, type: 'perPage' });
-
-                const removeCustomFee = (idx) => {
-                    customFees.value.splice(idx, 1);
-                    files.value.forEach(file => {
-                        if (file.selectedFees && file.selectedFees[idx] !== undefined) file.selectedFees.splice(idx, 1);
-                    });
-                };
-
-                const saveCustomFees = () => localStorage.setItem('printCalcCustomFees', JSON.stringify(customFees.value));
-
-                const clampTwoDecimals = (key) => {
-                    let val = Number(config[key]);
-                    if (isNaN(val)) val = 0;
-                    config[key] = Math.max(0, parseFloat(val.toFixed(2)));
-                };
-
-                const clampNonNegative = (key) => {
-                    if (config[key] === undefined) return;
-                    config[key] = Math.max(0, config[key]);
-                };
-
-                const clampTwoDecimalsForFee = (idx) => {
-                    let val = Number(customFees.value[idx]?.price);
-                    if (isNaN(val)) val = 0;
-                    if (customFees.value[idx]) customFees.value[idx].price = Math.max(0, parseFloat(val.toFixed(2)));
-                };
-
-                const resetDiscount = () => { discountRate.value = 100; calculateTotals(); };
-                const resetAdjust = () => { adjustType.value = ''; adjustHistory.value = 0; calculateTotals(); };
-
-                const customRoundAmount = () => {
-                    const precision = parseFloat(roundPrecision.value);
-                    afterRoundAmount.value = Math.floor((discountAmount.value / precision) + 1e-9) * precision;
-                    isRounded.value = true;
-                    calculateFinalAmount();
-                };
-
-                const adjustPrice = (type) => {
-                    if (adjustAmount.value <= 0) return;
-                    adjustType.value = type;
-                    adjustHistory.value = adjustAmount.value;
-                    calculateFinalAmount();
-                };
-
-                const getFileBillablePages = (file) => config.blankPageFree ? file.totalPages - (file.blankCount || 0) : file.totalPages;
-
-                const calcFileSubtotal = (file) => {
-                    let subtotal = 0;
-                    if (file.mode === 'mixed') {
-                        subtotal = (file.bwCount * config.bw) + (file.colCount * config.color);
-                    } else {
-                        subtotal = getFileBillablePages(file) * config.single;
-                    }
-                    const sheetsUsed = file.duplex ? Math.ceil(file.totalPages / 2) : file.totalPages;
-                    if (file.use80gPaper) subtotal += sheetsUsed * config.paperAdd80g;
-                    if (file.selectedFees) {
-                        customFees.value.forEach((fee, idx) => {
-                            if (file.selectedFees[idx]) {
-                                if (fee.type === 'perPage') subtotal += file.totalPages * fee.price;
-                                else if (fee.type === 'perCopy') subtotal += file.copies * fee.price;
-                            }
-                        });
-                    }
-                    return subtotal;
-                };
-
-                const calcFileFinalAmount = (file) => calcFileSubtotal(file) * (discountRate.value / 100);
-
-                const calculateFinalAmount = () => {
-                    let base = isRounded.value ? afterRoundAmount.value : discountAmount.value;
-                    if (adjustType.value === 'add') finalAmount.value = base + adjustHistory.value;
-                    else if (adjustType.value === 'subtract') finalAmount.value = Math.max(0, base - adjustHistory.value);
-                    else finalAmount.value = base;
-                    
-                    const totalCost = paperCost.value + inkCost.value;
-                    profitAmount.value = finalAmount.value - totalCost;
-                    profitRate.value = finalAmount.value > 0 ? (profitAmount.value / finalAmount.value) * 100 : 0;
-                };
-
-                const calculateTotals = () => {
-                    isRounded.value = false; 
-                    let bwPages = 0, colPages = 0, blankPages = 0;
-                    let sheets70g = 0, sheets80g = 0, pages70g = 0, pages80g = 0;
-                    let mBwPages = 0, mColPages = 0, sPages = 0;
-                    let bwCost = 0, colCost = 0, singleCost = 0, paperAddCost = 0;
-                    let totalStdPages = 0, totalC = 0, totalM = 0, totalY = 0, totalK = 0, totalCost = 0;
-                    let customFeesTotalArr = customFees.value.map(f => ({ name: f.name, total: 0 }));
-                    let totalCustomCost = 0;
-
-                    files.value.forEach(file => {
-                        // 【取消 loading 阻断】让进度条执行中时动态计算更新数据
-                        if (file.error) return;
-
-                        const copies = file.copies || 1;
-                        bwPages += file.bwCount * copies;
-                        colPages += file.colCount * copies;
-                        blankPages += (file.blankCount || 0) * copies;
-
-                        const sheetsUsed = file.duplex ? Math.ceil(file.totalPages / 2) : file.totalPages;
-                        
-                        if (file.use80gPaper) {
-                            sheets80g += sheetsUsed * copies;
-                            pages80g += file.totalPages * copies;
-                            paperAddCost += (sheetsUsed * config.paperAdd80g) * copies;
-                        } else {
-                            sheets70g += sheetsUsed * copies;
-                            pages70g += file.totalPages * copies;
-                        }
-                        
-                        if (file.mode === 'mixed') {
-                            mBwPages += file.bwCount * copies;
-                            mColPages += file.colCount * copies;
-                            bwCost += (file.bwCount * config.bw) * copies;
-                            colCost += (file.colCount * config.color) * copies;
-                        } else if (file.mode === 'single') {
-                            const billable = getFileBillablePages(file);
-                            sPages += billable * copies;
-                            singleCost += (billable * config.single) * copies;
-                        }
-                        
-                        totalStdPages += getFileStdPages(file) * copies;
-                        
-                        if (file.pages) {
-                            file.pages.forEach(page => {
-                                totalC += page.cmyk.c * page.areaRatio * copies;
-                                totalM += page.cmyk.m * page.areaRatio * copies;
-                                totalY += page.cmyk.y * page.areaRatio * copies;
-                                totalK += page.cmyk.k * page.areaRatio * copies;
-                            });
-                        }
-                        
-                        totalCost += calcFileSubtotal(file) * copies;
-
-                        if (file.selectedFees) {
-                            customFees.value.forEach((fee, idx) => {
-                                if (file.selectedFees[idx]) {
-                                    let cost = fee.type === 'perPage' ? file.totalPages * fee.price * copies : file.copies * fee.price * copies;
-                                    if (customFeesTotalArr[idx]) customFeesTotalArr[idx].total += cost;
-                                    totalCustomCost += cost;
-                                }
-                            });
-                        }
-                    });
-
-                    totalBwPages.value = bwPages; totalColorPages.value = colPages; totalBlankPages.value = blankPages;
-                    mixedBwPages.value = mBwPages; mixedColorPages.value = mColPages; singlePages.value = sPages;
-                    totalBwCost.value = bwCost; totalColorCost.value = colCost; totalSingleCost.value = singleCost;
-                    total70gSheets.value = sheets70g; total80gSheets.value = sheets80g;
-                    total70gPages.value = pages70g; total80gPages.value = pages80g;
-                    totalPaperAddCost.value = paperAddCost; customFeesTotal.value = customFeesTotalArr;
-                    totalCustomFeesCost.value = totalCustomCost; totalStandardPages.value = totalStdPages;
-                    totalCmyk.value = { c: totalC, m: totalM, y: totalY, k: totalK };
-
-                    inkCost.value = (config.inkPrice / config.inkYield) * totalStdPages;
-                    paperCost.value = (sheets70g * (config.paper70gPrice / config.paper70gQty)) + (sheets80g * (config.paper80gPrice / config.paper80gQty));
-
-                    totalStats.cost = totalCost;
-                    discountAmount.value = totalCost * (discountRate.value / 100);
-                    calculateFinalAmount();
-                    // 暴露响应式状态快照供平滑动画使用（在 calculateFinalAmount 之后读取最终值）
-                    window._vs = {
-                        totalStats: { cost: totalCost },
-                        finalAmount: finalAmount.value,
-                        totalBwCost: totalBwCost.value, totalColorCost: totalColorCost.value,
-                        totalSingleCost: totalSingleCost.value,
-                        totalPaperAddCost: totalPaperAddCost.value, totalCustomFeesCost: totalCustomFeesCost.value,
-                        discountAmount: discountAmount.value,
-                        paperCost: paperCost.value, inkCost: inkCost.value,
-                        profitRate: profitRate.value, profitAmount: profitAmount.value,
-                        totalBwPages: totalBwPages.value, totalColorPages: totalColorPages.value, totalBlankPages: totalBlankPages.value
-                    };
-                    triggerAnim(); // 触发数字平滑动画
-                };
-
-                const getFileStdPages = (file) => file.pages ? file.pages.reduce((sum, page) => sum + page.stdPages, 0) : 0;
-                
-                const getFileAvgCmyk = (file) => {
-                    if (!file.pages || file.pages.length === 0) return { c: 0, m: 0, y: 0, k: 0 };
-                    const total = file.pages.reduce((sum, page) => ({
-                        c: sum.c + page.cmyk.c, m: sum.m + page.cmyk.m, y: sum.y + page.cmyk.y, k: sum.k + page.cmyk.k
-                    }), { c: 0, m: 0, y: 0, k: 0 });
-                    const len = file.pages.length;
-                    return { c: total.c / len, m: total.m / len, y: total.y / len, k: total.k / len };
-                };
-                
-                const getFeeList = (file) => {
-                    const parts =[];
-                    const sheetsUsed = file.duplex ? Math.ceil(file.totalPages / 2) : file.totalPages;
-                    if (file.use80gPaper) parts.push({ label: '80g纸', detail: `￥${formatAmount(config.paperAdd80g)}/张 × ${sheetsUsed}张`, cost: sheetsUsed * config.paperAdd80g });
-                    if (file.selectedFees) {
-                        customFees.value.forEach((fee, idx) => {
-                            if (file.selectedFees[idx]) {
-                                const qty = fee.type === 'perPage' ? file.totalPages : file.copies;
-                                const unit = fee.type === 'perPage' ? '页' : '份';
-                                parts.push({ label: fee.name, detail: `￥${formatAmount(fee.price)}/${unit} × ${qty}${unit}`, cost: qty * fee.price });
-                            }
-                        });
-                    }
-                    return parts;
-                };
-                
-                const getFeeTotal = (file) => {
-                    let total = 0;
-                    const sheetsUsed = file.duplex ? Math.ceil(file.totalPages / 2) : file.totalPages;
-                    if (file.use80gPaper) total += sheetsUsed * config.paperAdd80g;
-                    if (file.selectedFees) {
-                        customFees.value.forEach((fee, idx) => {
-                            if (file.selectedFees[idx]) {
-                                total += fee.type === 'perPage' ? (file.totalPages * fee.price) : (file.copies * fee.price);
-                            }
-                        });
-                    }
-                    return total;
-                };
-                
-                const getFileTotalCoverage = (file) => {
-                    if (!file.pages || file.pages.length === 0) return 0;
-                    return file.pages.reduce((sum, page) => sum + page.total, 0) / file.pages.length;
-                };
-
-                const triggerUpload = () => document.getElementById('fileInput').click();
-
-                const handleUpload = (e) => {
-                    const uploadedFiles = e.target.files;
-                    if (!uploadedFiles || uploadedFiles.length === 0) return;
-                    Array.from(uploadedFiles).forEach(file => processFile(file));
-                    e.target.value = '';
-                };
-
-                const onDragOver = (e) => { e.preventDefault(); isDragging.value = true; };
-                const onDragLeave = (e) => { e.preventDefault(); isDragging.value = false; };
-                
-                const onDrop = (e) => {
-                    e.preventDefault();
-                    isDragging.value = false;
-                    const droppedFiles = e.dataTransfer.files;
-                    if (!droppedFiles || droppedFiles.length === 0) return;
-                    Array.from(droppedFiles).forEach(file => {
-                        if (file.type === 'application/pdf') processFile(file);
-                    });
-                };
-
-                const processFile = async (file) => {
-                    const fileObj = reactive({
-                        name: file.name, file: file, totalPages: 0, pages:[],
-                        loading: true, progress: 0, progressTotal: 0, bwCount: 0, colCount: 0, blankCount: 0,
-                        copies: 1, mode: 'mixed', use80gPaper: false, duplex: false,
-                        selectedFees: new Array(customFees.value.length).fill(false), showPreview: false
-                    });
-                    files.value.push(fileObj);
-
-                    try {
-                        const fileUrl = URL.createObjectURL(file);
-                        const pdf = await pdfjsLib.getDocument(fileUrl).promise;
-                        URL.revokeObjectURL(fileUrl); 
-                        fileObj.totalPages = pdf.numPages;
-                        fileObj.progressTotal = pdf.numPages;
-
-                        for (let i = 1; i <= pdf.numPages; i++) {
-                            const page = await pdf.getPage(i);
-                            const baseViewport = page.getViewport({ scale: 1.0 });
-                            const widthMm = (baseViewport.width / 72) * 25.4;
-                            const heightMm = (baseViewport.height / 72) * 25.4;
-                            const areaRatio = (baseViewport.width * baseViewport.height) / (595.276 * 841.89);
-
-                            const viewport = page.getViewport({ scale: 1.5 });
-                            const canvas = document.createElement('canvas');
-                            const ctx = canvas.getContext('2d');
-                            canvas.width = viewport.width; canvas.height = viewport.height;
-
-                            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-                            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                            const cmyk = analyzeCMYK(imageData);
-                            const totalCoverage = cmyk.c + cmyk.m + cmyk.y + cmyk.k;
-                            
-                            const isBlank = totalCoverage <= config.blankThreshold;
-                            const isColor = !isBlank && (cmyk.c + cmyk.m + cmyk.y) > config.colorThreshold;
-
-                            fileObj.pages.push({
-                                index: i, thumb: canvas.toDataURL('image/png'), cmyk: cmyk, total: totalCoverage,
-                                widthMm: widthMm, heightMm: heightMm, areaRatio: areaRatio,
-                                stdPages: (totalCoverage / 5) * areaRatio, isColor: isColor, isBlank: isBlank
-                            });
-
-                            if (isBlank) fileObj.blankCount++;
-                            else if (isColor) fileObj.colCount++;
-                            else fileObj.bwCount++;
-                            
-                            // 更新解析进度，驱动进度条
-                            fileObj.progress = i;
-                        }
-                        fileObj.loading = false;
-                        calculateTotals(); // 最终保障总账单计算
-                    } catch (err) {
-                        console.error('处理PDF失败:', err);
-                        fileObj.loading = false;
-                        fileObj.error = '解析失败，请检查文件是否损坏或其他错误';
-                    }
-                };
-
-                const analyzeCMYK = (imageData) => {
-                    const data = imageData.data;
-                    const pixelCount = data.length / 4;
-                    let c = 0, m = 0, y = 0, k = 0;
-
-                    for (let i = 0; i < data.length; i += 4) {
-                        const r = data[i] / 255; const g = data[i + 1] / 255; const b = data[i + 2] / 255;
-                        const kVal = 1 - Math.max(r, g, b);
-                        c += kVal < 1 ? (1 - r - kVal) / (1 - kVal) : 0;
-                        m += kVal < 1 ? (1 - g - kVal) / (1 - kVal) : 0;
-                        y += kVal < 1 ? (1 - b - kVal) / (1 - kVal) : 0;
-                        k += kVal;
-                    }
-
-                    return { c: (c / pixelCount) * 100, m: (m / pixelCount) * 100, y: (y / pixelCount) * 100, k: (k / pixelCount) * 100 };
-                };
-
-                const reanalyzeAll = () => {
-                    files.value.forEach(file => {
-                        if (file.error) return; 
-                        if (file.pages && file.pages.length > 0) {
-                            file.bwCount = 0; file.colCount = 0; file.blankCount = 0;
-                            file.pages.forEach(page => {
-                                const isBlank = page.total <= config.blankThreshold;
-                                const isColor = !isBlank && (page.cmyk.c + page.cmyk.m + page.cmyk.y) > config.colorThreshold;
-                                page.isBlank = isBlank; page.isColor = isColor;
-                                if (isBlank) file.blankCount++; else if (isColor) file.colCount++; else file.bwCount++;
-                            });
-                        }
-                    });
-                    calculateTotals();
-                };
-
-                const removeFile = (idx) => { files.value.splice(idx, 1); calculateTotals(); };
-                const openImageModal = (url) => modalImgUrl.value = url;
-                const closeImageModal = () => modalImgUrl.value = '';
-
-                // 核心截图逻辑封装，锁死物理宽度防止换行重排导致样式错位
-                const generateBillCanvas = async () => {
-                    const modal = document.getElementById('billModal');
-                    if (!modal || isSavingImage.value) return null;
-                    isSavingImage.value = true;
-                    try {
-                        const btnArea = modal.querySelector('[data-bill-actions]');
-                        if (btnArea) btnArea.style.display = 'none';
-
-                        // 确保 WebFont 完全加载完毕再截图
-                        if (document.fonts) await document.fonts.ready;
-
-                        const prevMaxHeight = modal.style.maxHeight;
-                        const prevOverflow  = modal.style.overflowY;
-                        const prevWidth = modal.style.width;
-
-                        // 锁定宽度以防滚动条消失导致的宽度自适应重排位
-                        const currentClientWidth = modal.clientWidth;
-                        modal.style.width = currentClientWidth + 'px';
-                        modal.style.maxHeight = 'none';
-                        modal.style.overflowY = 'visible';
-
-                        // 留帧等待浏览器排版重绘
-                        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-                        const fullWidth  = modal.scrollWidth;
-                        const fullHeight = modal.scrollHeight;
-
-                        const canvas = await html2canvas(modal, {
-                            scale: 2,
-                            useCORS: true,
-                            backgroundColor: '#ffffff',
-                            logging: false,
-                            width: fullWidth,
-                            height: fullHeight,
-                            scrollX: 0,
-                            scrollY: -window.scrollY,
-                            windowWidth: document.documentElement.clientWidth,
-                            windowHeight: document.documentElement.clientHeight
-                        });
-
-                        // 恢复原样式
-                        modal.style.maxHeight = prevMaxHeight;
-                        modal.style.overflowY  = prevOverflow;
-                        modal.style.width = prevWidth;
-                        if (btnArea) btnArea.style.display = '';
-
-                        return canvas;
-                    } catch (err) {
-                        console.error('截图生成失败:', err);
-                        alert('生成图片失败，请尝试打印功能。');
-                        return null;
-                    } finally {
-                        isSavingImage.value = false;
-                    }
-                };
-
-                const saveBillAsImage = async () => {
-                    const canvas = await generateBillCanvas();
-                    if (canvas) downloadCanvas(canvas);
-                };
-
-                const openImageInNewTab = async () => {
-                    const canvas = await generateBillCanvas();
-                    if (canvas) {
-                        const imgUrl = canvas.toDataURL('image/png');
-                        const win = window.open('', '_blank');
-                        if (win) {
-                            win.document.write(`
-                                <!DOCTYPE html>
-                                <html lang="zh-CN">
-                                <head>
-                                    <meta charset="UTF-8">
-                                    <title>打印消费对账单</title>
-                                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                                    <style>
-                                        body { margin: 0; background: #334155; display: flex; justify-content: center; align-items: flex-start; padding: 20px; min-height: 100vh; box-sizing: border-box; }
-                                        img { max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 24px 64px rgba(0,0,0,0.35); }
-                                    </style>
-                                </head>
-                                <body>
-                                    <img src="${imgUrl}" alt="对账单">
-                                </body>
-                                </html>
-                            `);
-                            win.document.close();
-                        } else {
-                            alert('新窗口已被浏览器拦截，请允许弹出窗口，或使用"下载为图片"功能。');
-                        }
-                    }
-                };
-
-                const downloadCanvas = (canvas) => {
-                    const now = new Date();
-                    const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
-                    const a = document.createElement('a');
-                    a.href = canvas.toDataURL('image/png');
-                    a.download = `打印对账单_${ts}.png`;
-                    a.click();
-                };
-
-                const printBill = () => {
-                    const modal = document.getElementById('billModal');
-                    if (!modal) return;
-                    const cloned = modal.cloneNode(true);
-                    const btns = cloned.querySelectorAll('button');
-                    btns.forEach(b => b.remove());
-                    const html = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>打印对账单</title>
-                    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@800&display=swap" rel="stylesheet">
-                    <style>
-                        *{box-sizing:border-box;}
-                        body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;padding:24px 28px;color:#1e293b;font-size:14px;max-width:680px;margin:0 auto;}
-                        .bill-head{background:linear-gradient(135deg,#1e293b,#334155);color:#fff;padding:20px 24px 14px;border-radius:12px 12px 0 0;}
-                        .bill-body{padding:18px 24px 24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;}
-                        .bill-section-title{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin:16px 0 8px;}
-                        table{width:100%;border-collapse:collapse;margin-bottom:4px;}
-                        th{background:#f8fafc;text-align:left;padding:7px 10px;font-size:12px;font-weight:700;color:#64748b;border-bottom:2px solid #e2e8f0;}
-                        td{padding:8px 10px;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;}
-                        .bill-subtotal td{background:#f8fafc;font-weight:700;}
-                        .bill-grand{background:#0f172a;color:#9dff00;padding:12px 18px;border-radius:8px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:22px;font-weight:800;text-align:center;margin:14px 0 4px;}
-                        .bill-grand-num{font-family:'Orbitron',monospace;letter-spacing:2px;}
-                        .bill-tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:12px;font-weight:700;}
-                        .bill-tag-bw{background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;}
-                        .bill-tag-col{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;}
-                        .bill-tag-blank{background:#fffbeb;color:#92400e;border:1px solid #fde68a;}
-                        .bill-tag-duplex{background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe;}
-                        @media print{body{padding:0;}}
-                    </style></head><body>` + cloned.outerHTML + `</body></html>`;
-                    const win = window.open('', '_blank');
-                    win.document.write(html);
-                    win.document.close();
-                    win.onload = () => win.print();
-                };
-
-                watch([() => ({ ...config }), customFees], () => {
-                    localStorage.setItem('printCalcConfig', JSON.stringify(config));
-                    localStorage.setItem('printCalcCustomFees', JSON.stringify(customFees.value));
-                }, { deep: true });
-                
-                // 由于 Vue 监听了 deep file对象，在 processFile 时不断增改 count 与 push 会持续驱动 calculateTotals
-                watch(files, calculateTotals, { deep: true });
-                watch(discountRate, calculateTotals);
-                watch(customFees, calculateTotals, { deep: true });
-                watch(config, calculateTotals, { deep: true });
-
-                return {
-                    config, customFees, files, isDragging, modalImgUrl, discountRate, roundPrecision, roundPrecisionLabel,
-                    isRounded, afterRoundAmount, adjustAmount, adjustType, adjustHistory,
-                    total70gSheets, total80gSheets, total70gPages, total80gPages,
-                    totalBwPages, totalColorPages, totalBlankPages,
-                    mixedBwPages, mixedColorPages, singlePages, totalBwCost, totalColorCost,
-                    totalSingleCost, totalPaperAddCost, totalCustomFeesCost, customFeesTotal, totalStandardPages, inkCost,
-                    paperCost, totalCmyk, totalStats, discountAmount, finalAmount, profitRate, profitAmount,
-                    friendlyLinks, triggerUpload, hasDuplexFiles, showCostSection, showBillModal, isSavingImage,
-                    handleUpload, onDragOver, onDragLeave, onDrop, removeFile, openImageModal, closeImageModal, clampTwoDecimals,
-                    clampNonNegative, resetDiscount, customRoundAmount, adjustPrice, resetAdjust, 
-                    fmt: formatAmount, formatAmount, getFileStdPages,
-                    getFileAvgCmyk, getFileTotalCoverage, getFeeList, getFeeTotal, reanalyzeAll, addCustomFee, removeCustomFee,
-                    saveCustomFees, clampTwoDecimalsForFee, resetToDefault, calcFileSubtotal, calcFileFinalAmount,
-                    getFileBillablePages, printBill, saveBillAsImage, openImageInNewTab,
-                    animTick
-                };
+        el._animRaf = requestAnimationFrame(tick);
+    }
+
+    const animTick = ref(0);
+    function triggerAnim() { animTick.value++; }
+
+    const DEFAULT_CONFIG = {
+        bw: 0.15, color: 0.5, single: 0.3, paperAdd80g: 0.05,
+        colorThreshold: 0.5, blankThreshold: 0.5,
+        // 空白页计费模式: 'free'|'bw'|'single'|'custom'
+        blankPageMode: 'free',
+        blankCustomPrice: 0.1,
+        inkPrice: 75, inkYield: 1000,
+        paper70gPrice: 15, paper70gQty: 500, paper80gPrice: 20, paper80gQty: 500
+    };
+
+    const DEFAULT_CUSTOM_FEES = [
+        { name: '激光打印', price: 0.1, type: 'perPage' },
+        { name: '装订', price: 0.2, type: 'perCopy' }
+    ];
+
+    createApp({
+        setup() {
+            const savedConfig = localStorage.getItem('printCalcConfig');
+            let parsedConfig = savedConfig ? JSON.parse(savedConfig) : {};
+            // 兼容旧版 blankPageFree 布尔字段
+            if (parsedConfig.blankPageFree !== undefined && parsedConfig.blankPageMode === undefined) {
+                parsedConfig.blankPageMode = parsedConfig.blankPageFree ? 'free' : 'bw';
+                delete parsedConfig.blankPageFree;
             }
-        }).mount('#app');
-    </script>
+            const config = reactive({ ...DEFAULT_CONFIG, ...parsedConfig });
+
+            // 确保除数字段不为0（兼容旧配置）
+            if (!config.inkYield || config.inkYield <= 0) config.inkYield = 1;
+            if (!config.paper70gQty || config.paper70gQty <= 0) config.paper70gQty = 1;
+            if (!config.paper80gQty || config.paper80gQty <= 0) config.paper80gQty = 1;
+
+            const savedFees = localStorage.getItem('printCalcCustomFees');
+            const customFees = ref(savedFees ? JSON.parse(savedFees) : DEFAULT_CUSTOM_FEES);
+
+            const discountRate = ref(100); 
+            const roundPrecision = ref('0.01'); 
+            const isRounded = ref(false); 
+            const afterRoundAmount = ref(0); 
+            const adjustAmount = ref(0); 
+            const adjustType = ref(''); 
+            const adjustHistory = ref(0); 
+            const showCostSection = ref(true);
+            const showBillModal = ref(false); 
+            const isSavingImage = ref(false);
+
+            // 记录除数为0错误列表（用于横幅提示）
+            const zeroDivisorErrors = ref([]);
+            let zeroDivisorTimer = null;
+
+            const files = ref([]);
+            const isDragging = ref(false);
+            const modalImgUrl = ref('');
+            
+            const total70gSheets = ref(0); const total80gSheets = ref(0);
+            const total70gPages = ref(0); const total80gPages = ref(0);
+            const totalBwPages = ref(0); const totalColorPages = ref(0); const totalBlankPages = ref(0);
+            const mixedBwPages = ref(0); const mixedColorPages = ref(0); const singlePages = ref(0); 
+            
+            const totalBwCost = ref(0); const totalColorCost = ref(0); const totalSingleCost = ref(0);
+            const totalBlankCost = ref(0);
+            const totalPaperAddCost = ref(0); const totalCustomFeesCost = ref(0); 
+            const customFeesTotal = ref([]); const totalStandardPages = ref(0);
+            const inkCost = ref(0); const paperCost = ref(0);
+            const totalCmyk = ref({ c: 0, m: 0, y: 0, k: 0 });
+            const totalStats = reactive({ cost: 0 });
+            const discountAmount = ref(0); const finalAmount = ref(0);
+            const profitRate = ref(0); const profitAmount = ref(0);
+
+            const hasDuplexFiles = computed(() => files.value.some(f => f.duplex));
+
+            // 空白页计费模式选项
+            const blankModeOptions = [
+                { value: 'free',   label: '🆓 不计费（默认）' },
+                { value: 'bw',     label: '📄 按黑白价' },
+                { value: 'single', label: '📄 按均一价' },
+                { value: 'custom', label: '✏️ 自定义金额' },
+            ];
+
+            // 当前空白页实际单价
+            const blankUnitPrice = computed(() => {
+                switch (config.blankPageMode) {
+                    case 'bw':     return config.bw;
+                    case 'single': return config.single;
+                    case 'custom': return config.blankCustomPrice || 0;
+                    default:       return 0;
+                }
+            });
+
+            const blankModeLabel = computed(() => {
+                const opt = blankModeOptions.find(o => o.value === config.blankPageMode);
+                return opt ? opt.label.replace(/^[^\s]+\s/, '') : '不计费';
+            });
+
+            const friendlyLinks = ref([
+                { url: 'https://www.kewu.cc', title: '匿名\'s blog' },
+                { url: 'https://www.subrecovery.top', title: '异次元通讯-次元复苏' },
+                { url: 'https://njust.wiki', title: '' },
+                { url: 'https://id5.fun', title: '' }
+            ]);
+
+            const roundPrecisionLabel = computed(() => {
+                const labels = { '0.01': '0.01元（分）', '0.1': '0.1元（角）', '1': '1元（元）', '10': '10元（十元）' };
+                return labels[roundPrecision.value] || '0.01元（分）';
+            });
+
+            // ===== 除数为0校验函数 =====
+            const validateDivisor = (key, label) => {
+                const val = Number(config[key]);
+                if (isNaN(val) || val <= 0) {
+                    config[key] = 1;
+                    // 将错误加入横幅（去重）
+                    if (!zeroDivisorErrors.value.includes(label)) {
+                        zeroDivisorErrors.value.push(label);
+                    }
+                    // 5秒后清除
+                    clearTimeout(zeroDivisorTimer);
+                    zeroDivisorTimer = setTimeout(() => { zeroDivisorErrors.value = []; }, 5000);
+                    calculateTotals();
+                }
+            };
+
+            // 安全除法，防止 NaN/Infinity
+            const safeDiv = (a, b, fallback = 0) => {
+                if (!b || b === 0) return fallback;
+                const result = a / b;
+                return isFinite(result) ? result : fallback;
+            };
+
+            onMounted(() => {
+                calculateTotals();
+                window.addEventListener('dragover', (e) => e.preventDefault());
+                window.addEventListener('drop', (e) => { e.preventDefault(); isDragging.value = false; });
+                window.addEventListener('dragenter', (e) => {
+                    if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
+                        e.preventDefault(); isDragging.value = true;
+                    }
+                });
+
+                watch(animTick, () => {
+                    nextTick(() => {
+                        const s = window._vs;
+                        if (!s) return;
+                        const D = 600; const DP = 350;
+                        smoothCount(document.getElementById('disp-orig'),       s.totalStats.cost,         D,   '￥', '', 2);
+                        smoothCount(document.getElementById('disp-final'),      s.finalAmount,             D,   '￥', '', 2);
+                        smoothCount(document.getElementById('disp-bwcost'),     s.totalBwCost,             D,   '￥', '', 2);
+                        smoothCount(document.getElementById('disp-colcost'),    s.totalColorCost,          D,   '￥', '', 2);
+                        smoothCount(document.getElementById('disp-single'),     s.totalSingleCost,         D,   '￥', '', 2);
+                        smoothCount(document.getElementById('disp-extra'),      s.totalPaperAddCost + s.totalCustomFeesCost, D, '￥', '', 2);
+                        smoothCount(document.getElementById('disp-disc'),       s.discountAmount,          D,   '￥', '', 2);
+                        smoothCount(document.getElementById('disp-totalcost'),  s.paperCost + s.inkCost,   D,   '￥', '', 2);
+                        smoothCount(document.getElementById('disp-profitr'),    s.profitRate,              D,   '',  '%', 2);
+                        smoothCount(document.getElementById('disp-profita'),    Math.abs(s.profitAmount),  D,   s.profitAmount >= 0 ? '+￥' : '-￥', '', 2);
+                        smoothCount(document.getElementById('disp-tbw'),        s.totalBwPages,            DP,  '',  '', 0);
+                        smoothCount(document.getElementById('disp-tcol'),       s.totalColorPages,         DP,  '',  '', 0);
+                        smoothCount(document.getElementById('disp-tblk'),       s.totalBlankPages,         DP,  '',  '', 0);
+                        smoothCount(document.getElementById('disp-tall'),       s.totalBwPages + s.totalColorPages + s.totalBlankPages, DP, '', '', 0);
+                    });
+                });
+            });
+
+            const formatAmount = (num, maxDec = 4) => {
+                const val = Number(num);
+                if (isNaN(val) || !isFinite(val)) return '0.00';
+                let str = val.toFixed(maxDec); 
+                let parts = str.split('.');
+                if (parts.length === 1) return str + '.00';
+                let decP = parts[1];
+                while (decP.length > 2 && decP.endsWith('0')) decP = decP.slice(0, -1);
+                return parts[0] + '.' + decP;
+            };
+
+            const resetToDefault = () => {
+                Object.assign(config, DEFAULT_CONFIG);
+                customFees.value = [...DEFAULT_CUSTOM_FEES];
+                discountRate.value = 100; roundPrecision.value = '0.01'; isRounded.value = false;
+                afterRoundAmount.value = 0; adjustAmount.value = 0; adjustType.value = ''; adjustHistory.value = 0;
+                zeroDivisorErrors.value = [];
+                calculateTotals();
+            };
+
+            const addCustomFee = () => customFees.value.push({ name: '新附加费', price: 0, type: 'perPage' });
+
+            const removeCustomFee = (idx) => {
+                customFees.value.splice(idx, 1);
+                files.value.forEach(file => {
+                    if (file.selectedFees && file.selectedFees[idx] !== undefined) file.selectedFees.splice(idx, 1);
+                });
+            };
+
+            const saveCustomFees = () => localStorage.setItem('printCalcCustomFees', JSON.stringify(customFees.value));
+
+            const clampTwoDecimals = (key) => {
+                let val = Number(config[key]);
+                if (isNaN(val)) val = 0;
+                config[key] = Math.max(0, parseFloat(val.toFixed(2)));
+            };
+
+            const clampNonNegative = (key) => {
+                if (config[key] === undefined) return;
+                config[key] = Math.max(0, config[key]);
+            };
+
+            const clampTwoDecimalsForFee = (idx) => {
+                let val = Number(customFees.value[idx]?.price);
+                if (isNaN(val)) val = 0;
+                if (customFees.value[idx]) customFees.value[idx].price = Math.max(0, parseFloat(val.toFixed(2)));
+            };
+
+            const resetDiscount = () => { discountRate.value = 100; calculateTotals(); };
+            const resetAdjust = () => { adjustType.value = ''; adjustHistory.value = 0; calculateTotals(); };
+
+            const customRoundAmount = () => {
+                const precision = parseFloat(roundPrecision.value);
+                afterRoundAmount.value = Math.floor((discountAmount.value / precision) + 1e-9) * precision;
+                isRounded.value = true;
+                calculateFinalAmount();
+            };
+
+            const adjustPrice = (type) => {
+                if (adjustAmount.value <= 0) return;
+                adjustType.value = type;
+                adjustHistory.value = adjustAmount.value;
+                calculateFinalAmount();
+            };
+
+            // ===== 计算空白页打印费（按模式） =====
+            const calcBlankPageCost = (blankCount) => blankCount * blankUnitPrice.value;
+
+            // 计算文件纯打印费（不含附加费）
+            const calcFilePrintCost = (file) => {
+                if (file.mode === 'mixed') {
+                    return file.bwCount * config.bw + file.colCount * config.color + calcBlankPageCost(file.blankCount || 0);
+                } else {
+                    // 单一模式：空白页按模式处理
+                    if (config.blankPageMode === 'free') {
+                        return (file.totalPages - (file.blankCount || 0)) * config.single;
+                    } else if (config.blankPageMode === 'single') {
+                        // 均一价 = 全部页都按single
+                        return file.totalPages * config.single;
+                    } else {
+                        // 非空白页按single，空白页按指定价
+                        return (file.totalPages - (file.blankCount || 0)) * config.single + calcBlankPageCost(file.blankCount || 0);
+                    }
+                }
+            };
+
+            const calcFileSubtotal = (file) => {
+                let subtotal = calcFilePrintCost(file);
+                const sheetsUsed = file.duplex ? Math.ceil(file.totalPages / 2) : file.totalPages;
+                if (file.use80gPaper) subtotal += sheetsUsed * config.paperAdd80g;
+                if (file.selectedFees) {
+                    customFees.value.forEach((fee, idx) => {
+                        if (file.selectedFees[idx]) {
+                            if (fee.type === 'perPage') subtotal += file.totalPages * fee.price;
+                            else if (fee.type === 'perCopy') subtotal += file.copies * fee.price;
+                        }
+                    });
+                }
+                return subtotal;
+            };
+
+            const calcFileFinalAmount = (file) => calcFileSubtotal(file) * (discountRate.value / 100);
+
+            const calculateFinalAmount = () => {
+                let base = isRounded.value ? afterRoundAmount.value : discountAmount.value;
+                if (adjustType.value === 'add') finalAmount.value = base + adjustHistory.value;
+                else if (adjustType.value === 'subtract') finalAmount.value = Math.max(0, base - adjustHistory.value);
+                else finalAmount.value = base;
+                
+                const totalCost = paperCost.value + inkCost.value;
+                profitAmount.value = finalAmount.value - totalCost;
+                profitRate.value = finalAmount.value > 0 ? (profitAmount.value / finalAmount.value) * 100 : 0;
+            };
+
+            const calculateTotals = () => {
+                isRounded.value = false; 
+                let bwPages = 0, colPages = 0, blankPages = 0;
+                let sheets70g = 0, sheets80g = 0, pages70g = 0, pages80g = 0;
+                let mBwPages = 0, mColPages = 0, sPages = 0;
+                let bwCost = 0, colCost = 0, singleCost = 0, paperAddCost = 0, blankCost = 0;
+                let totalStdPages = 0, totalC = 0, totalM = 0, totalY = 0, totalK = 0, totalCost = 0;
+                let customFeesTotalArr = customFees.value.map(f => ({ name: f.name, total: 0 }));
+                let totalCustomCost = 0;
+
+                files.value.forEach(file => {
+                    if (file.error) return;
+
+                    const copies = file.copies || 1;
+                    bwPages += file.bwCount * copies;
+                    colPages += file.colCount * copies;
+                    blankPages += (file.blankCount || 0) * copies;
+
+                    const sheetsUsed = file.duplex ? Math.ceil(file.totalPages / 2) : file.totalPages;
+                    
+                    if (file.use80gPaper) {
+                        sheets80g += sheetsUsed * copies;
+                        pages80g += file.totalPages * copies;
+                        paperAddCost += (sheetsUsed * config.paperAdd80g) * copies;
+                    } else {
+                        sheets70g += sheetsUsed * copies;
+                        pages70g += file.totalPages * copies;
+                    }
+                    
+                    if (file.mode === 'mixed') {
+                        mBwPages += file.bwCount * copies;
+                        mColPages += file.colCount * copies;
+                        bwCost += (file.bwCount * config.bw) * copies;
+                        colCost += (file.colCount * config.color) * copies;
+                        blankCost += calcBlankPageCost(file.blankCount || 0) * copies;
+                    } else if (file.mode === 'single') {
+                        // 单一模式：空白免费则只计非空白；否则全计
+                        let billable = config.blankPageMode === 'free' ? file.totalPages - (file.blankCount || 0) : file.totalPages;
+                        sPages += billable * copies;
+                        singleCost += (billable * config.single) * copies;
+                        // 如果空白不是免费且不是均一价，计入 blankCost
+                        if (config.blankPageMode !== 'free' && config.blankPageMode !== 'single') {
+                            blankCost += calcBlankPageCost(file.blankCount || 0) * copies;
+                        }
+                    }
+                    
+                    totalStdPages += getFileStdPages(file) * copies;
+                    
+                    if (file.pages) {
+                        file.pages.forEach(page => {
+                            totalC += page.cmyk.c * page.areaRatio * copies;
+                            totalM += page.cmyk.m * page.areaRatio * copies;
+                            totalY += page.cmyk.y * page.areaRatio * copies;
+                            totalK += page.cmyk.k * page.areaRatio * copies;
+                        });
+                    }
+                    
+                    totalCost += calcFileSubtotal(file) * copies;
+
+                    if (file.selectedFees) {
+                        customFees.value.forEach((fee, idx) => {
+                            if (file.selectedFees[idx]) {
+                                let cost = fee.type === 'perPage' ? file.totalPages * fee.price * copies : file.copies * fee.price * copies;
+                                if (customFeesTotalArr[idx]) customFeesTotalArr[idx].total += cost;
+                                totalCustomCost += cost;
+                            }
+                        });
+                    }
+                });
+
+                totalBwPages.value = bwPages; totalColorPages.value = colPages; totalBlankPages.value = blankPages;
+                mixedBwPages.value = mBwPages; mixedColorPages.value = mColPages; singlePages.value = sPages;
+                totalBwCost.value = bwCost; totalColorCost.value = colCost; totalSingleCost.value = singleCost;
+                totalBlankCost.value = blankCost;
+                total70gSheets.value = sheets70g; total80gSheets.value = sheets80g;
+                total70gPages.value = pages70g; total80gPages.value = pages80g;
+                totalPaperAddCost.value = paperAddCost; customFeesTotal.value = customFeesTotalArr;
+                totalCustomFeesCost.value = totalCustomCost; totalStandardPages.value = totalStdPages;
+                totalCmyk.value = { c: totalC, m: totalM, y: totalY, k: totalK };
+
+                inkCost.value = safeDiv(config.inkPrice, config.inkYield) * totalStdPages;
+                paperCost.value = (sheets70g * safeDiv(config.paper70gPrice, config.paper70gQty)) + (sheets80g * safeDiv(config.paper80gPrice, config.paper80gQty));
+
+                totalStats.cost = totalCost;
+                discountAmount.value = totalCost * (discountRate.value / 100);
+                calculateFinalAmount();
+
+                window._vs = {
+                    totalStats: { cost: totalCost },
+                    finalAmount: finalAmount.value,
+                    totalBwCost: totalBwCost.value, totalColorCost: totalColorCost.value,
+                    totalSingleCost: totalSingleCost.value,
+                    totalPaperAddCost: totalPaperAddCost.value, totalCustomFeesCost: totalCustomFeesCost.value,
+                    discountAmount: discountAmount.value,
+                    paperCost: paperCost.value, inkCost: inkCost.value,
+                    profitRate: profitRate.value, profitAmount: profitAmount.value,
+                    totalBwPages: totalBwPages.value, totalColorPages: totalColorPages.value, totalBlankPages: totalBlankPages.value
+                };
+                triggerAnim();
+            };
+
+            const getFileStdPages = (file) => file.pages ? file.pages.reduce((sum, page) => sum + page.stdPages, 0) : 0;
+            
+            const getFileAvgCmyk = (file) => {
+                if (!file.pages || file.pages.length === 0) return { c: 0, m: 0, y: 0, k: 0 };
+                const total = file.pages.reduce((sum, page) => ({
+                    c: sum.c + page.cmyk.c, m: sum.m + page.cmyk.m, y: sum.y + page.cmyk.y, k: sum.k + page.cmyk.k
+                }), { c: 0, m: 0, y: 0, k: 0 });
+                const len = file.pages.length;
+                return { c: total.c / len, m: total.m / len, y: total.y / len, k: total.k / len };
+            };
+            
+            const getFeeList = (file) => {
+                const parts = [];
+                const sheetsUsed = file.duplex ? Math.ceil(file.totalPages / 2) : file.totalPages;
+                if (file.use80gPaper) parts.push({ label: '80g纸', detail: `￥${formatAmount(config.paperAdd80g)}/张 × ${sheetsUsed}张`, cost: sheetsUsed * config.paperAdd80g });
+                if (file.selectedFees) {
+                    customFees.value.forEach((fee, idx) => {
+                        if (file.selectedFees[idx]) {
+                            const qty = fee.type === 'perPage' ? file.totalPages : file.copies;
+                            const unit = fee.type === 'perPage' ? '页' : '份';
+                            parts.push({ label: fee.name, detail: `￥${formatAmount(fee.price)}/${unit} × ${qty}${unit}`, cost: qty * fee.price });
+                        }
+                    });
+                }
+                return parts;
+            };
+            
+            const getFeeTotal = (file) => {
+                let total = 0;
+                const sheetsUsed = file.duplex ? Math.ceil(file.totalPages / 2) : file.totalPages;
+                if (file.use80gPaper) total += sheetsUsed * config.paperAdd80g;
+                if (file.selectedFees) {
+                    customFees.value.forEach((fee, idx) => {
+                        if (file.selectedFees[idx]) total += fee.type === 'perPage' ? (file.totalPages * fee.price) : (file.copies * fee.price);
+                    });
+                }
+                return total;
+            };
+            
+            const getFileTotalCoverage = (file) => {
+                if (!file.pages || file.pages.length === 0) return 0;
+                return file.pages.reduce((sum, page) => sum + page.total, 0) / file.pages.length;
+            };
+
+            const triggerUpload = () => document.getElementById('fileInput').click();
+
+            const handleUpload = (e) => {
+                const uploadedFiles = e.target.files;
+                if (!uploadedFiles || uploadedFiles.length === 0) return;
+                Array.from(uploadedFiles).forEach(file => processFile(file));
+                e.target.value = '';
+            };
+
+            const onDragOver = (e) => { e.preventDefault(); isDragging.value = true; };
+            const onDragLeave = (e) => { e.preventDefault(); isDragging.value = false; };
+            
+            const onDrop = (e) => {
+                e.preventDefault();
+                isDragging.value = false;
+                const droppedFiles = e.dataTransfer.files;
+                if (!droppedFiles || droppedFiles.length === 0) return;
+                Array.from(droppedFiles).forEach(file => {
+                    if (file.type === 'application/pdf') processFile(file);
+                });
+            };
+
+            const processFile = async (file) => {
+                const fileObj = reactive({
+                    name: file.name, file: file, totalPages: 0, pages: [],
+                    loading: true, progress: 0, progressTotal: 0, bwCount: 0, colCount: 0, blankCount: 0,
+                    copies: 1, mode: 'mixed', use80gPaper: false, duplex: false,
+                    selectedFees: new Array(customFees.value.length).fill(false), showPreview: false
+                });
+                files.value.push(fileObj);
+
+                try {
+                    const fileUrl = URL.createObjectURL(file);
+                    const pdf = await pdfjsLib.getDocument(fileUrl).promise;
+                    URL.revokeObjectURL(fileUrl); 
+                    fileObj.totalPages = pdf.numPages;
+                    fileObj.progressTotal = pdf.numPages;
+
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const baseViewport = page.getViewport({ scale: 1.0 });
+                        const areaRatio = (baseViewport.width * baseViewport.height) / (595.276 * 841.89);
+
+                        const viewport = page.getViewport({ scale: 1.5 });
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = viewport.width; canvas.height = viewport.height;
+
+                        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const cmyk = analyzeCMYK(imageData);
+                        const totalCoverage = cmyk.c + cmyk.m + cmyk.y + cmyk.k;
+                        
+                        const isBlank = totalCoverage <= config.blankThreshold;
+                        const isColor = !isBlank && (cmyk.c + cmyk.m + cmyk.y) > config.colorThreshold;
+
+                        fileObj.pages.push({
+                            index: i, thumb: canvas.toDataURL('image/png'), cmyk: cmyk, total: totalCoverage,
+                            areaRatio: areaRatio,
+                            stdPages: (totalCoverage / 5) * areaRatio, isColor: isColor, isBlank: isBlank
+                        });
+
+                        if (isBlank) fileObj.blankCount++;
+                        else if (isColor) fileObj.colCount++;
+                        else fileObj.bwCount++;
+                        
+                        fileObj.progress = i;
+                    }
+                    fileObj.loading = false;
+                    calculateTotals();
+                } catch (err) {
+                    console.error('处理PDF失败:', err);
+                    fileObj.loading = false;
+                    fileObj.error = '解析失败，请检查文件是否损坏或其他错误';
+                }
+            };
+
+            const analyzeCMYK = (imageData) => {
+                const data = imageData.data;
+                const pixelCount = data.length / 4;
+                let c = 0, m = 0, y = 0, k = 0;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i] / 255; const g = data[i + 1] / 255; const b = data[i + 2] / 255;
+                    const kVal = 1 - Math.max(r, g, b);
+                    c += kVal < 1 ? (1 - r - kVal) / (1 - kVal) : 0;
+                    m += kVal < 1 ? (1 - g - kVal) / (1 - kVal) : 0;
+                    y += kVal < 1 ? (1 - b - kVal) / (1 - kVal) : 0;
+                    k += kVal;
+                }
+
+                return { c: (c / pixelCount) * 100, m: (m / pixelCount) * 100, y: (y / pixelCount) * 100, k: (k / pixelCount) * 100 };
+            };
+
+            const reanalyzeAll = () => {
+                files.value.forEach(file => {
+                    if (file.error) return; 
+                    if (file.pages && file.pages.length > 0) {
+                        file.bwCount = 0; file.colCount = 0; file.blankCount = 0;
+                        file.pages.forEach(page => {
+                            const isBlank = page.total <= config.blankThreshold;
+                            const isColor = !isBlank && (page.cmyk.c + page.cmyk.m + page.cmyk.y) > config.colorThreshold;
+                            page.isBlank = isBlank; page.isColor = isColor;
+                            if (isBlank) file.blankCount++; else if (isColor) file.colCount++; else file.bwCount++;
+                        });
+                    }
+                });
+                calculateTotals();
+            };
+
+            const removeFile = (idx) => { files.value.splice(idx, 1); calculateTotals(); };
+            const openImageModal = (url) => modalImgUrl.value = url;
+            const closeImageModal = () => modalImgUrl.value = '';
+
+            const generateBillCanvas = async () => {
+                const modal = document.getElementById('billModal');
+                if (!modal || isSavingImage.value) return null;
+                isSavingImage.value = true;
+                try {
+                    const btnArea = modal.querySelector('[data-bill-actions]');
+                    if (btnArea) btnArea.style.display = 'none';
+                    if (document.fonts) await document.fonts.ready;
+                    const prevMaxHeight = modal.style.maxHeight;
+                    const prevOverflow  = modal.style.overflowY;
+                    const prevWidth = modal.style.width;
+                    const currentClientWidth = modal.clientWidth;
+                    modal.style.width = currentClientWidth + 'px';
+                    modal.style.maxHeight = 'none';
+                    modal.style.overflowY = 'visible';
+                    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                    const fullWidth  = modal.scrollWidth;
+                    const fullHeight = modal.scrollHeight;
+                    const canvas = await html2canvas(modal, {
+                        scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false,
+                        width: fullWidth, height: fullHeight, scrollX: 0, scrollY: -window.scrollY,
+                        windowWidth: document.documentElement.clientWidth,
+                        windowHeight: document.documentElement.clientHeight
+                    });
+                    modal.style.maxHeight = prevMaxHeight;
+                    modal.style.overflowY  = prevOverflow;
+                    modal.style.width = prevWidth;
+                    if (btnArea) btnArea.style.display = '';
+                    return canvas;
+                } catch (err) {
+                    console.error('截图生成失败:', err);
+                    alert('生成图片失败，请尝试打印功能。');
+                    return null;
+                } finally {
+                    isSavingImage.value = false;
+                }
+            };
+
+            const saveBillAsImage = async () => { const canvas = await generateBillCanvas(); if (canvas) downloadCanvas(canvas); };
+
+            const openImageInNewTab = async () => {
+                const canvas = await generateBillCanvas();
+                if (canvas) {
+                    const imgUrl = canvas.toDataURL('image/png');
+                    const win = window.open('', '_blank');
+                    if (win) {
+                        win.document.write(`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>打印消费对账单</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{margin:0;background:#334155;display:flex;justify-content:center;align-items:flex-start;padding:20px;min-height:100vh;box-sizing:border-box;}img{max-width:100%;height:auto;border-radius:12px;box-shadow:0 24px 64px rgba(0,0,0,0.35);}</style></head><body><img src="${imgUrl}" alt="对账单"></body></html>`);
+                        win.document.close();
+                    } else { alert('新窗口已被浏览器拦截，请允许弹出窗口，或使用"下载为图片"功能。'); }
+                }
+            };
+
+            const downloadCanvas = (canvas) => {
+                const now = new Date();
+                const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+                const a = document.createElement('a');
+                a.href = canvas.toDataURL('image/png');
+                a.download = `打印对账单_${ts}.png`;
+                a.click();
+            };
+
+            const printBill = () => {
+                const modal = document.getElementById('billModal');
+                if (!modal) return;
+                const cloned = modal.cloneNode(true);
+                cloned.querySelectorAll('button').forEach(b => b.remove());
+                const html = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>打印对账单</title>
+                <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@800&display=swap" rel="stylesheet">
+                <style>
+                    *{box-sizing:border-box;}
+                    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;padding:24px 28px;color:#1e293b;font-size:14px;max-width:680px;margin:0 auto;}
+                    .bill-head{background:linear-gradient(135deg,#1e293b,#334155);color:#fff;padding:20px 24px 14px;border-radius:12px 12px 0 0;}
+                    .bill-body{padding:18px 24px 24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;}
+                    .bill-section-title{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin:16px 0 8px;}
+                    table{width:100%;border-collapse:collapse;margin-bottom:4px;}
+                    th{background:#f8fafc;text-align:left;padding:7px 10px;font-size:12px;font-weight:700;color:#64748b;border-bottom:2px solid #e2e8f0;}
+                    td{padding:8px 10px;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;}
+                    .bill-subtotal td{background:#f8fafc;font-weight:700;}
+                    .bill-grand{background:#0f172a;color:#9dff00;padding:12px 18px;border-radius:8px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:22px;font-weight:800;text-align:center;margin:14px 0 4px;}
+                    .bill-grand-num{font-family:'Orbitron',monospace;letter-spacing:2px;}
+                    .bill-tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:12px;font-weight:700;}
+                    .bill-tag-bw{background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;}
+                    .bill-tag-col{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;}
+                    .bill-tag-blank{background:#fffbeb;color:#92400e;border:1px solid #fde68a;}
+                    .bill-tag-duplex{background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe;}
+                    @media print{body{padding:0;}}
+                </style></head><body>` + cloned.outerHTML + `</body></html>`;
+                const win = window.open('', '_blank');
+                win.document.write(html);
+                win.document.close();
+                win.onload = () => win.print();
+            };
+
+            watch([() => ({ ...config }), customFees], () => {
+                localStorage.setItem('printCalcConfig', JSON.stringify(config));
+                localStorage.setItem('printCalcCustomFees', JSON.stringify(customFees.value));
+            }, { deep: true });
+            
+            watch(files, calculateTotals, { deep: true });
+            watch(discountRate, calculateTotals);
+            watch(customFees, calculateTotals, { deep: true });
+            watch(config, calculateTotals, { deep: true });
+
+            return {
+                config, customFees, files, isDragging, modalImgUrl, discountRate, roundPrecision, roundPrecisionLabel,
+                isRounded, afterRoundAmount, adjustAmount, adjustType, adjustHistory,
+                total70gSheets, total80gSheets, total70gPages, total80gPages,
+                totalBwPages, totalColorPages, totalBlankPages, totalBlankCost,
+                mixedBwPages, mixedColorPages, singlePages, totalBwCost, totalColorCost,
+                totalSingleCost, totalPaperAddCost, totalCustomFeesCost, customFeesTotal, totalStandardPages, inkCost,
+                paperCost, totalCmyk, totalStats, discountAmount, finalAmount, profitRate, profitAmount,
+                friendlyLinks, triggerUpload, hasDuplexFiles, showCostSection, showBillModal, isSavingImage,
+                handleUpload, onDragOver, onDragLeave, onDrop, removeFile, openImageModal, closeImageModal,
+                clampTwoDecimals, clampNonNegative, resetDiscount, customRoundAmount, adjustPrice, resetAdjust, 
+                fmt: formatAmount, formatAmount, safeDiv, getFileStdPages,
+                getFileAvgCmyk, getFileTotalCoverage, getFeeList, getFeeTotal, reanalyzeAll, addCustomFee,
+                removeCustomFee, saveCustomFees, clampTwoDecimalsForFee, resetToDefault,
+                calcFileSubtotal, calcFileFinalAmount, calcFilePrintCost,
+                printBill, saveBillAsImage, openImageInNewTab, animTick,
+                // 新增
+                zeroDivisorErrors, validateDivisor,
+                blankModeOptions, blankUnitPrice, blankModeLabel,
+            };
+        }
+    }).mount('#app');
+</script>
 
 <script type="text/javascript">
     (function(c,l,a,r,i,t,y){
@@ -1584,7 +1659,8 @@
 
 <div style="text-align:center; padding:16px 0; margin-top:20px; font-size:14px; color:#666666; font-family:Arial,sans-serif; border-top:1px solid #eeeeee; line-height:1.8;">
     Copyright © 2023-2026 Light All rights reserved. Powered by 
-    <a href="https://kewu.cc" target="_blank" style="color:#4285f4; text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#2d70eb';this.style.textDecoration='underline'" onmouseout="this.style.color='#4285f4';this.style.textDecoration='none'" onmousedown="this.style.color='#1a56d9'">https://kewu.cc</a><br>
-    计算可能不准确，使用<a href="/ISO-19752-Standard-Printer-Black-and-White-Test-P.pdf" target="_blank" style="color:#4285f4; text-decoration:none; transition:color 0.2s;" onmouseover="this.style.color='#2d70eb';this.style.textDecoration='underline'" onmouseout="this.style.color='#4285f4';this.style.textDecoration='none'" onmousedown="this.style.color='#1a56d9'">ISO-19752标准打印机黑白测试页 </a>来测试
-   <p>License MIT</p>
-</div></html>
+    <a href="https://kewu.cc" target="_blank" style="color:#4285f4; text-decoration:none;" onmouseover="this.style.color='#2d70eb'" onmouseout="this.style.color='#4285f4'">https://kewu.cc</a><br>
+    计算可能不准确，使用<a href="/ISO-19752-Standard-Printer-Black-and-White-Test-P.pdf" target="_blank" style="color:#4285f4; text-decoration:none;">ISO-19752标准打印机黑白测试页</a>来测试
+    <p>License MIT</p>
+</div>
+</html>
