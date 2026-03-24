@@ -764,7 +764,7 @@
                         </select>
                     </div>
                     <div class="bill-link-field">
-                        <label class="bill-link-label">bill.html 基础地址</label>
+                        <label class="bill-link-label">bill.html 基础地址 如https://print.id5.fun/bill.html</label>
                         <input class="bill-link-input" v-model.trim="activeBillSourceBase" @input="refreshBillLinkPreview" placeholder="例如：https://cdn.example.com/print/">
                     </div>
                     <div class="bill-link-field">
@@ -870,7 +870,7 @@
             const activeBillSourceKey = ref('local1');
             const billLinkSources = reactive([
                 { key: 'local1', label: '本地', base: '' },
-                { key: 'cdn1', label: 'CDN', base: '' },
+                { key: 'CN-cdn', label: 'CN-CDN', base: 'https://print.072177.xyz/bill.html' },
                 { key: 'custom1', label: '自定义', base: '' }
             ]);
             let billLinkQrInstance = null;
