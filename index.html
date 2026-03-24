@@ -181,13 +181,29 @@
                 <button @click="resetToDefault" class="btn-reset ml-auto">重置默认配置</button>
             </div>
             <p class="text-sm mt-2 opacity-90">
+  <strong>功能说明</strong><br>
+  支持将 PDF 文件拖拽至网页任意位置，逐页计算 CMYK 覆盖率，并动态折算为墨水消耗量。所有计算均在本地完成，充分保护数据隐私。
+</p>
+<div class="text-sm mt-2 opacity-90 space-y-2">
+  <!-- 注意事项标题与说明 -->
+  <div>
+    <strong class="block mb-1">注意事项</strong>
+    <p class="leading-relaxed">
+      本工具仍在迭代中，当前版本存在一定误差：例如，25% 的绿色文档会被识别为 25% 蓝色 + 约 20% 黄色（显示的是不太准确的墨水消耗量而非面积占比），从而影响覆盖率的测算结果。<br>
+      纯 CMYK 颜色模式下无此问题。欢迎提交 PR 参与改进。
+    </p>
+  </div>
 
-                支持将 PDF 文件拖拽到网页任意位置，逐页计算CMYK覆盖率并动态折算测算。当前正在自动累计计算数据。完全在本地运行，保护数据隐私。 单价的除数不允许为0！例如，打印纸价格不允许为10元/0张
-                
-            </p>
+  <!-- 当前想法：采用有序列表提升可读性 -->
+  <div>
+    <p class="font-medium mb-1">目前想法：只计算图形面积占比，不考虑墨水混合问题；或使用某种准确方式处理 RGB-CMYK 变换；或者二者兼得。</p>
+
+
+  </div>
+</div>
             <div class="flex items-center gap-2 mt-3">
-<a href="https://github.com/qeqeq1/PrintCalc" target="_blank" class="friend-link font-bold">🔗 在 GitHub 上开源</a>
-<span class="ml-2 text-xs bg-slate-700 text-slate-200 px-2 py-1 rounded">v1.2.3</span>
+<a href="https://github.com/qeqeq1/PrintCalc" target="_blank" class="friend-link font-bold">🔗 开源在 GitHub </a>
+<span class="ml-2 text-xs bg-slate-700 text-slate-200 px-2 py-1 rounded">v1.2.8</span>
                 <span class="text-slate-400">·</span>
                 <a href="https://github.com/qeqeq1/PrintCalc/issues" target="_blank" class="friend-link">反馈问题</a>
             </div>
