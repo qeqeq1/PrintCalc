@@ -151,21 +151,9 @@
                                     <td colspan="3" style="text-align:right;color:#475569;">单份小计</td>
                                     <td style="text-align:right;">￥{{ fmt(file.subtotal || 0) }}</td>
                                 </tr>
-                                <tr class="bill-subtotal">
-                                    <td colspan="3" style="text-align:right;color:#475569;">折后金额</td>
-                                    <td style="text-align:right;color:#059669;font-size:15px;">￥{{ fmt(file.subtotal || 0) }} × {{ fmtFactor(bill.dr / 100) }} = ￥{{ fmt(getPerCopyDiscounted(file)) }}</td>
-                                </tr>
                                 <tr v-if="(file.copies || 1) > 1" class="bill-subtotal">
                                     <td colspan="3" style="text-align:right;color:#475569;">× {{ file.copies }} 份 合计</td>
                                     <td style="text-align:right;color:#1d4ed8;">￥{{ fmt(file.subtotal || 0) }} × {{ file.copies || 1 }} = ￥{{ fmt((file.subtotal || 0) * (file.copies || 1)) }}</td>
-                                </tr>
-                                <tr v-if="(file.copies || 1) > 1" class="bill-subtotal">
-                                    <td colspan="3" style="text-align:right;color:#475569;">折后合计</td>
-                                    <td style="text-align:right;color:#059669;font-size:15px;">￥{{ fmt(getPerCopyDiscounted(file)) }} × {{ file.copies || 1 }} = ￥{{ fmt(file.finalAmount || 0) }}</td>
-                                </tr>
-                                <tr v-else class="bill-subtotal">
-                                    <td colspan="3" style="text-align:right;color:#475569;">折后合计</td>
-                                    <td style="text-align:right;color:#059669;font-size:15px;">￥{{ fmt(file.finalAmount || 0) }}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -188,7 +176,7 @@
                             </tr>
                             <tr v-if="bill.ir" style="background:#f0fdf4;font-weight:700;">
                                 <td>抹零后金额</td>
-                                <td>￥{{ fmt(bill.disc) }} → ￥{{ fmt(bill.ara) }}（向下取整）</td>
+                                <td>￥{{ fmt(bill.disc) }} → ￥{{ fmt(bill.ara) }}</td>
                                 <td style="text-align:right;font-size:15px;color:#059669;">￥{{ fmt(bill.ara) }}</td>
                             </tr>
                         </tbody>
@@ -199,22 +187,13 @@
                     <div class="qr-panel">
                         <div class="bill-section-title" style="margin-top:0;">扫码查看设置</div>
                         <div class="field">
-                            <label>链接方案</label>
-                            <select v-model="activeSourceKey" @change="refreshQr">
-                                <option v-for="item in linkSources" :key="item.key" :value="item.key">{{ item.label }}</option>
-                            </select>
-                        </div>
-                        <div class="field">
-                            <label>bill.html 基础地址</label>
-                            <input v-model.trim="activeSourceBase" @input="refreshQr" placeholder="例如：https://cdn.example.com/print/">
-                        </div>
-                        <div class="field">
-                            <label>扫码目标链接</label>
+                            <label>本页面链接</label>
                             <input :value="qrTargetUrl" readonly>
                         </div>
                         <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
                             <button class="btn btn-dark" @click="refreshQr">刷新二维码</button>
-                            <button class="btn btn-primary" @click="copyQrTarget">复制扫码链接</button>
+                            <button class="btn btn-primary" @click="copyQrTarget">复制本页链接</button>
+                            <button class="btn btn-ghost" @click="openCurrentInNewTab">新标签打开</button>
                         </div>
                         <div class="qr-box">
                             <div id="qrcode"></div>
@@ -232,12 +211,6 @@
             setup() {
                 const error = ref('');
                 const qrTargetUrl = ref('');
-                const activeSourceKey = ref('local1');
-                const linkSources = reactive([
-                    { key: 'local1', label: '本地1（当前站点）', base: '' },
-                    { key: 'cdn1', label: 'CDN1（可编辑）', base: '' },
-                    { key: 'custom1', label: '自定义1', base: '' }
-                ]);
                 const bill = reactive({
                     ts: Date.now(),
                     tbw: 0, tcol: 0, tblk: 0, tp: 0, fcount: 0,
@@ -251,18 +224,6 @@
                     fees: []
                 });
                 let qrcodeInstance = null;
-
-                const activeSourceBase = computed({
-                    get() {
-                        const current = linkSources.find(item => item.key === activeSourceKey.value);
-                        return current ? current.base : '';
-                    },
-                    set(value) {
-                        const current = linkSources.find(item => item.key === activeSourceKey.value);
-                        if (current) current.base = value;
-                        localStorage.setItem('billLinkSources', JSON.stringify(linkSources));
-                    }
-                });
 
                 const fmt = (value) => {
                     const num = Number(value);
@@ -293,13 +254,6 @@
                     if (bill.blankMode === 'bw') return `黑白价￥${fmt(bill.blankPrice)}/页`;
                     if (bill.blankMode === 'single') return `均一价￥${fmt(bill.blankPrice)}/页`;
                     return `￥${fmt(bill.blankPrice)}/页`;
-                };
-
-                const getPerCopyDiscounted = (file) => {
-                    const subtotal = Number(file?.subtotal) || 0;
-                    const factor = Number(bill.dr) / 100;
-                    if (!isFinite(factor)) return subtotal;
-                    return subtotal * factor;
                 };
 
                 const toNumber = (value, fallback = 0) => {
@@ -362,24 +316,6 @@
                     if (!bill.filename && bill.files.length) bill.filename = bill.files.map(file => file.name).join(' | ');
                 };
 
-                const normalizeBase = (base) => {
-                    const raw = (base || '').trim();
-                    if (!raw) {
-                        return window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
-                    }
-                    return raw;
-                };
-
-                const buildTargetUrl = () => {
-                    const base = normalizeBase(activeSourceBase.value);
-                    const isHtmlPath = /bill\.html($|\?)/i.test(base);
-                    const url = isHtmlPath
-                        ? new URL(base, window.location.href)
-                        : new URL('bill.html', base.endsWith('/') ? base : base + '/');
-                    url.search = window.location.search;
-                    return url.toString();
-                };
-
                 const renderQrCode = async () => {
                     await nextTick();
                     const container = document.getElementById('qrcode');
@@ -396,8 +332,7 @@
                 };
 
                 const refreshQr = async () => {
-                    qrTargetUrl.value = buildTargetUrl();
-                    localStorage.setItem('billLinkSources', JSON.stringify(linkSources));
+                    qrTargetUrl.value = window.location.href;
                     await renderQrCode();
                 };
 
@@ -418,25 +353,11 @@
 
                 const copyBillUrl = () => copyText(window.location.href, '账单链接已复制');
                 const copyQrTarget = () => copyText(qrTargetUrl.value, '扫码链接已复制');
+                const openCurrentInNewTab = () => window.open(window.location.href, '_blank');
 
                 const goBack = () => {
                     const home = new URL('index.html', window.location.href);
                     window.location.href = home.toString();
-                };
-
-                const loadLinkSources = () => {
-                    const saved = localStorage.getItem('billLinkSources');
-                    const localBase = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
-                    linkSources[0].base = localBase;
-                    if (!saved) return;
-                    try {
-                        const parsed = JSON.parse(saved);
-                        linkSources.forEach(item => {
-                            const hit = parsed.find(source => source.key === item.key);
-                            if (hit && typeof hit.base === 'string') item.base = hit.base;
-                        });
-                        if (!linkSources[0].base) linkSources[0].base = localBase;
-                    } catch {}
                 };
 
                 const loadBillData = () => {
@@ -503,30 +424,33 @@
                 onMounted(async () => {
                     loadBillData();
                     if (error.value) return;
-                    loadLinkSources();
                     await refreshQr();
                 });
 
                 return {
                     error,
                     bill,
-                    linkSources,
-                    activeSourceKey,
-                    activeSourceBase,
                     qrTargetUrl,
                     fmt,
                     fmtFactor,
                     formatDate,
                     getBlankModeLabel,
                     getBlankSummaryLabel,
-                    getPerCopyDiscounted,
                     refreshQr,
                     copyBillUrl,
                     copyQrTarget,
+                    openCurrentInNewTab,
                     goBack
                 };
             }
         }).mount('#app');
+    </script>
+    <script>
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "vpls2kjxx5");
     </script>
 </body>
 </html>

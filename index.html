@@ -11,6 +11,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         * { font-family: inherit; }
         body { 
@@ -124,6 +125,22 @@
         .blank-mode-btn:hover:not(.active) { border-color: #94a3b8; background: #f8fafc; }
         .btn-gen-bill { background: linear-gradient(135deg,#10b981,#059669); color: #fff; padding: 10px 22px; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer; border: none; box-shadow: 0 2px 8px rgba(16,185,129,.35); transition: all .2s; }
         .btn-gen-bill:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(16,185,129,.45); }
+        .bill-link-backdrop { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.7); z-index: 10002; display: flex; align-items: center; justify-content: center; padding: 16px; }
+        .bill-link-modal { width: 100%; max-width: 620px; background: #fff; border-radius: 12px; box-shadow: 0 24px 64px rgba(0,0,0,0.35); overflow: hidden; }
+        .bill-link-head { background: linear-gradient(135deg,#0f172a,#334155); color: #fff; padding: 18px 22px; }
+        .bill-link-body { padding: 18px 22px 22px; }
+        .bill-link-field { display: grid; gap: 6px; margin-bottom: 12px; }
+        .bill-link-label { font-size: 12px; font-weight: 700; color: #64748b; }
+        .bill-link-input { border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 10px; font-size: 13px; color: #1e293b; }
+        .bill-link-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+        .bill-link-btn { border: none; border-radius: 6px; padding: 8px 14px; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .bill-link-btn-primary { background: #0ea5e9; color: #fff; }
+        .bill-link-btn-primary:hover { background: #0284c7; }
+        .bill-link-btn-dark { background: #0f172a; color: #fff; }
+        .bill-link-btn-dark:hover { background: #1e293b; }
+        .bill-link-btn-ghost { background: #e2e8f0; color: #334155; }
+        .bill-link-btn-ghost:hover { background: #cbd5e1; }
+        .bill-link-qrcode { width: 300px; height: 300px; margin: 14px auto 0; padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; display: flex; align-items: center; justify-content: center; }
         .font-mono, [class*="font-mono"] {
             font-family: Consolas, "Courier New", "PingFang SC", "Microsoft YaHei", sans-serif !important;
         }
@@ -731,6 +748,41 @@
             </div>
         </section>
         
+        <div v-if="showBillLinkModal" class="bill-link-backdrop" @click.self="showBillLinkModal = false">
+            <div class="bill-link-modal">
+                <div class="bill-link-head">
+                    <div class="flex items-center justify-between gap-3">
+                        <h3 class="text-lg font-bold">用户对账单链接</h3>
+                        <button class="bill-link-btn bill-link-btn-ghost" @click="showBillLinkModal = false">关闭</button>
+                    </div>
+                </div>
+                <div class="bill-link-body">
+                    <div class="bill-link-field">
+                        <label class="bill-link-label">链接方案</label>
+                        <select class="bill-link-input" v-model="activeBillSourceKey" @change="refreshBillLinkPreview">
+                            <option v-for="src in billLinkSources" :key="src.key" :value="src.key">{{ src.label }}</option>
+                        </select>
+                    </div>
+                    <div class="bill-link-field">
+                        <label class="bill-link-label">bill.html 基础地址</label>
+                        <input class="bill-link-input" v-model.trim="activeBillSourceBase" @input="refreshBillLinkPreview" placeholder="例如：https://cdn.example.com/print/">
+                    </div>
+                    <div class="bill-link-field">
+                        <label class="bill-link-label">账单URL</label>
+                        <input class="bill-link-input" :value="billPreviewUrl" readonly>
+                    </div>
+                    <div class="bill-link-actions">
+                        <button class="bill-link-btn bill-link-btn-primary" @click="copyBillPreviewUrl">复制链接</button>
+                        <button class="bill-link-btn bill-link-btn-dark" @click="openBillPreviewInNewTab">新标签查看</button>
+                        <button class="bill-link-btn bill-link-btn-ghost" @click="refreshBillLinkPreview">刷新二维码</button>
+                    </div>
+                    <div class="bill-link-qrcode">
+                        <div id="bill-link-qrcode"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 图片放大弹窗 -->
         <div v-if="modalImgUrl" class="modal-backdrop" @click="closeImageModal">
             <img :src="modalImgUrl" class="modal-img" @click.stop>
@@ -813,6 +865,15 @@
             const files = ref([]);
             const isDragging = ref(false);
             const modalImgUrl = ref('');
+            const showBillLinkModal = ref(false);
+            const billPreviewUrl = ref('');
+            const activeBillSourceKey = ref('local1');
+            const billLinkSources = reactive([
+                { key: 'local1', label: '本地', base: '' },
+                { key: 'cdn1', label: 'CDN', base: '' },
+                { key: 'custom1', label: '自定义', base: '' }
+            ]);
+            let billLinkQrInstance = null;
             
             const total70gSheets = ref(0); const total80gSheets = ref(0);
             const total70gPages = ref(0); const total80gPages = ref(0);
@@ -852,6 +913,18 @@
             const blankModeLabel = computed(() => {
                 const opt = blankModeOptions.find(o => o.value === config.blankPageMode);
                 return opt ? opt.label.replace(/^[^\s]+\s/, '') : '不计费';
+            });
+
+            const activeBillSourceBase = computed({
+                get() {
+                    const current = billLinkSources.find(item => item.key === activeBillSourceKey.value);
+                    return current ? current.base : '';
+                },
+                set(value) {
+                    const current = billLinkSources.find(item => item.key === activeBillSourceKey.value);
+                    if (current) current.base = value;
+                    localStorage.setItem('billLinkSources', JSON.stringify(billLinkSources));
+                }
             });
 
             const friendlyLinks = ref([
@@ -920,6 +993,20 @@
                         smoothCount(document.getElementById('disp-tall'),       s.totalBwPages + s.totalColorPages + s.totalBlankPages, DP, '', '', 0);
                     });
                 });
+
+                const savedSources = localStorage.getItem('billLinkSources');
+                const localBase = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
+                billLinkSources[0].base = localBase;
+                if (savedSources) {
+                    try {
+                        const parsed = JSON.parse(savedSources);
+                        billLinkSources.forEach(item => {
+                            const hit = parsed.find(source => source.key === item.key);
+                            if (hit && typeof hit.base === 'string') item.base = hit.base;
+                        });
+                        if (!billLinkSources[0].base) billLinkSources[0].base = localBase;
+                    } catch {}
+                }
             });
 
             const formatAmount = (num, maxDec = 4) => {
@@ -1390,17 +1477,63 @@
                 return params;
             };
 
-            const buildBillUrl = () => {
-                const billUrl = new URL('bill.html', window.location.href);
+            const buildBillUrl = (baseUrl) => {
+                const base = (baseUrl || '').trim();
+                const resolvedBase = base
+                    ? (/bill\.html($|\?)/i.test(base) ? base : (base.endsWith('/') ? base : base + '/') + 'bill.html')
+                    : new URL('bill.html', window.location.href).toString();
+                const billUrl = new URL(resolvedBase, window.location.href);
                 billUrl.search = buildBillQueryParams().toString();
                 return billUrl.toString();
             };
 
-            const openCustomerBill = () => {
+            const renderBillLinkQr = async () => {
+                await nextTick();
+                const container = document.getElementById('bill-link-qrcode');
+                if (!container) return;
+                container.innerHTML = '';
+                billLinkQrInstance = new QRCode(container, {
+                    text: billPreviewUrl.value,
+                    width: 260,
+                    height: 260,
+                    colorDark: '#0f172a',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.L
+                });
+            };
+
+            const refreshBillLinkPreview = async () => {
+                billPreviewUrl.value = buildBillUrl(activeBillSourceBase.value);
+                localStorage.setItem('billLinkSources', JSON.stringify(billLinkSources));
+                await renderBillLinkQr();
+            };
+
+            const copyBillPreviewUrl = async () => {
+                if (!billPreviewUrl.value) return;
+                try {
+                    await navigator.clipboard.writeText(billPreviewUrl.value);
+                    alert('账单链接已复制');
+                } catch {
+                    const input = document.createElement('input');
+                    input.value = billPreviewUrl.value;
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand('copy');
+                    input.remove();
+                    alert('账单链接已复制');
+                }
+            };
+
+            const openBillPreviewInNewTab = () => {
+                if (!billPreviewUrl.value) return;
+                const win = window.open(billPreviewUrl.value, '_blank');
+                if (!win) window.location.href = billPreviewUrl.value;
+            };
+
+            const openCustomerBill = async () => {
                 if (!files.value.length) return;
-                const url = buildBillUrl();
-                const win = window.open(url, '_blank');
-                if (!win) window.location.href = url;
+                showBillLinkModal.value = true;
+                await refreshBillLinkPreview();
             };
 
             watch([() => ({ ...config }), customFees], () => {
@@ -1421,14 +1554,15 @@
                 mixedBwPages, mixedColorPages, singlePages, totalBwCost, totalColorCost,
                 totalSingleCost, totalPaperAddCost, totalCustomFeesCost, customFeesTotal, totalStandardPages, inkCost,
                 paperCost, totalCmyk, totalStats, discountAmount, finalAmount, profitRate, profitAmount,
-                friendlyLinks, triggerUpload, hasDuplexFiles, showCostSection, openCustomerBill,
+                friendlyLinks, triggerUpload, hasDuplexFiles, showCostSection, openCustomerBill, showBillLinkModal,
+                billPreviewUrl, billLinkSources, activeBillSourceKey, activeBillSourceBase,
                 handleUpload, onDragOver, onDragLeave, onDrop, removeFile, openImageModal, closeImageModal,
                 clampTwoDecimals, clampNonNegative, resetDiscount, customRoundAmount, adjustPrice, resetAdjust, 
                 fmt: formatAmount, formatAmount, safeDiv, getFileStdPages,
                 getFileAvgCmyk, getFileTotalCoverage, getFeeList, getFeeTotal, reanalyzeAll, addCustomFee,
                 removeCustomFee, saveCustomFees, clampTwoDecimalsForFee, resetToDefault,
                 calcFileSubtotal, calcFileFinalAmount, calcFilePrintCost,
-                buildBillUrl, animTick,
+                buildBillUrl, refreshBillLinkPreview, copyBillPreviewUrl, openBillPreviewInNewTab, animTick,
                 zeroDivisorErrors, validateDivisor,
                 blankModeOptions, blankUnitPrice, blankModeLabel,
             };
