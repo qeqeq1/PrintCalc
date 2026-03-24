@@ -10,7 +10,7 @@
     <script src="https://unpkg.com/vue@3.3.4/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
     <style>
         * { font-family: inherit; }
         body { 
@@ -122,32 +122,8 @@
         }
         .blank-mode-btn.active { border-color: #f59e0b; background: #fef3c7; color: #92400e; }
         .blank-mode-btn:hover:not(.active) { border-color: #94a3b8; background: #f8fafc; }
-        /* 顾客对账单弹窗 */
-        .bill-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; z-index: 10001; padding: 16px; }
-        .bill-modal  { background: #fff; border-radius: 12px; width: 100%; max-width: 680px; max-height: 92vh; overflow-y: auto; box-shadow: 0 24px 64px rgba(0,0,0,0.35); }
-        .bill-head   { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: #fff; padding: 24px 28px 18px; border-radius: 12px 12px 0 0; }
-        .bill-body   { padding: 20px 28px 28px; }
-        .bill-section-title { font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .08em; margin: 18px 0 8px; }
-        .bill-table  { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
-        .bill-table th { background: #f8fafc; text-align: left; padding: 8px 12px; font-size: 12px; font-weight: 700; color: #64748b; border-bottom: 2px solid #e2e8f0; }
-        .bill-table td { padding: 10px 12px; font-size: 14px; font-weight: 600; color: #1e293b; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
-        .bill-table tr:last-child td { border-bottom: none; }
-        .bill-subtotal td { background: #f8fafc; font-weight: 700; }
-        .bill-grand   { background: #0f172a; color: #9dff00; padding: 14px 20px; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; font-size: 26px; font-weight: 800; letter-spacing: 2px; text-align: center; margin: 16px 0 4px; }
-        .bill-grand-num { font-family: 'Orbitron', monospace; letter-spacing: 2px; }
-        .bill-tag     { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 12px; font-weight: 700; }
-        .bill-tag-bw  { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
-        .bill-tag-col { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-        .bill-tag-blank { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
-        .bill-tag-duplex { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
         .btn-gen-bill { background: linear-gradient(135deg,#10b981,#059669); color: #fff; padding: 10px 22px; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer; border: none; box-shadow: 0 2px 8px rgba(16,185,129,.35); transition: all .2s; }
         .btn-gen-bill:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(16,185,129,.45); }
-        .btn-bill-close { background: #e2e8f0; color: #334155; padding: 8px 20px; border-radius: 6px; font-weight: 700; font-size: 14px; cursor: pointer; border: none; }
-        .btn-bill-newtab { background: #0ea5e9; color: #fff; padding: 8px 20px; border-radius: 6px; font-weight: 700; font-size: 14px; cursor: pointer; border: none; transition: background 0.2s; }
-        .btn-bill-newtab:hover { background: #0284c7; }
-        .btn-bill-print { background: #3b82f6; color: #fff; padding: 8px 20px; border-radius: 6px; font-weight: 700; font-size: 14px; cursor: pointer; border: none; }
-        .btn-bill-img   { background: #8b5cf6; color: #fff; padding: 8px 20px; border-radius: 6px; font-weight: 700; font-size: 14px; cursor: pointer; border: none; }
-        .btn-bill-img:disabled, .btn-bill-newtab:disabled { opacity: .6; cursor: not-allowed; }
         .font-mono, [class*="font-mono"] {
             font-family: Consolas, "Courier New", "PingFang SC", "Microsoft YaHei", sans-serif !important;
         }
@@ -193,7 +169,8 @@
                 
             </p>
             <div class="flex items-center gap-2 mt-3">
-                <a href="https://github.com/qeqeq1/PrintCalc" target="_blank" class="friend-link font-bold">🔗 在 GitHub 上开源</a>
+<a href="https://github.com/qeqeq1/PrintCalc" target="_blank" class="friend-link font-bold">🔗 在 GitHub 上开源</a>
+<span class="ml-2 text-xs bg-slate-700 text-slate-200 px-2 py-1 rounded">v1.2.3</span>
                 <span class="text-slate-400">·</span>
                 <a href="https://github.com/qeqeq1/PrintCalc/issues" target="_blank" class="friend-link">反馈问题</a>
             </div>
@@ -439,8 +416,8 @@
             <div class="cost-card bg-slate-900 text-white">
                 <div class="flex items-center justify-between mb-2 flex-wrap gap-3">
                     <h3 class="text-lg font-bold text-white">售价核算</h3>
-                    <button @click="showBillModal = true" class="btn-gen-bill" :disabled="files.length === 0">
-                        🧾 生成顾客对账单
+                    <button @click="openCustomerBill" class="btn-gen-bill" :disabled="files.length === 0">
+                        🧾 显示顾客对账单
                     </button>
                 </div>
                 
@@ -754,205 +731,6 @@
             </div>
         </section>
         
-        <!-- 顾客对账单弹窗 -->
-        <div v-if="showBillModal" class="bill-backdrop" @click.self="showBillModal = false">
-            <div class="bill-modal" id="billModal">
-                <div class="bill-head">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h2 class="text-2xl font-bold mb-1">打印消费对账单</h2>
-                            <p class="text-slate-400 text-sm">{{ new Date().toLocaleString('zh-CN') }}</p>
-                        </div>
-                        <button @click="showBillModal = false" style="background:rgba(255,255,255,.12);border:none;color:#fff;padding:6px 14px;border-radius:6px;font-weight:700;cursor:pointer;font-size:14px;">✕ 关闭</button>
-                    </div>
-                </div>
-
-                <div class="bill-body">
-                    <div class="bill-section-title">打印总量摘要</div>
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:4px;">
-                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center;">
-                            <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:4px;">文件数</div>
-                            <div style="font-size:22px;font-weight:800;color:#1e293b;">{{ files.filter(f => !f.error).length }}</div>
-                        </div>
-                        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;text-align:center;">
-                            <div style="font-size:11px;color:#3b82f6;font-weight:700;margin-bottom:4px;">黑白总页</div>
-                            <div style="font-size:22px;font-weight:800;color:#1d4ed8;">{{ totalBwPages }}</div>
-                        </div>
-                        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;text-align:center;">
-                            <div style="font-size:11px;color:#ef4444;font-weight:700;margin-bottom:4px;">彩色总页</div>
-                            <div style="font-size:22px;font-weight:800;color:#b91c1c;">{{ totalColorPages }}</div>
-                        </div>
-                        <div v-if="totalBlankPages > 0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;text-align:center;">
-                            <div style="font-size:11px;color:#d97706;font-weight:700;margin-bottom:4px;">
-                                空白页<span v-if="config.blankPageMode === 'free'">(免费)</span><span v-else>(计费)</span>
-                            </div>
-                            <div style="font-size:22px;font-weight:800;color:#92400e;">{{ totalBlankPages }}</div>
-                        </div>
-                        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;text-align:center;">
-                            <div style="font-size:11px;color:#16a34a;font-weight:700;margin-bottom:4px;">实际用纸</div>
-                            <div style="font-size:22px;font-weight:800;color:#15803d;">{{ total70gSheets + total80gSheets }}</div>
-                        </div>
-                    </div>
-
-                    <div class="bill-section-title">逐文件计费明细</div>
-                    <div v-for="(file, fIdx) in files.filter(f => !f.error)" :key="'bill-'+fIdx" style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:14px;">
-                        <div style="background:#f8fafc;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;border-bottom:1px solid #e2e8f0;">
-                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                <span style="font-weight:800;font-size:15px;color:#0f172a;">{{ fIdx+1 }}. {{ file.name }}</span>
-                                <span class="bill-tag" :class="file.duplex ? 'bill-tag-duplex' : 'bill-tag-bw'">{{ file.duplex ? '双面打印' : '单面打印' }}</span>
-                                <span class="bill-tag bill-tag-bw">{{ file.mode === 'mixed' ? '分色计价' : '单一计价' }}</span>
-                                <span class="bill-tag" style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;">{{ file.use80gPaper ? '80g纸' : '70g纸' }}</span>
-                            </div>
-                            <span style="font-size:17px;font-weight:800;color:#1d4ed8;">× {{ file.copies }} 份</span>
-                        </div>
-                        <table class="bill-table">
-                            <thead>
-                                <tr>
-                                    <th>项目</th><th>数量</th><th>单价</th><th style="text-align:right;">小计</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <template v-if="file.mode === 'mixed'">
-                                    <tr v-if="file.bwCount > 0">
-                                        <td><span class="bill-tag bill-tag-bw">黑白打印</span></td>
-                                        <td>{{ file.bwCount }} 页</td>
-                                        <td>￥{{ fmt(config.bw) }}/页</td>
-                                        <td style="text-align:right;font-weight:700;">￥{{ fmt(file.bwCount * config.bw) }}</td>
-                                    </tr>
-                                    <tr v-if="file.colCount > 0">
-                                        <td><span class="bill-tag bill-tag-col">彩色打印</span></td>
-                                        <td>{{ file.colCount }} 页</td>
-                                        <td>￥{{ fmt(config.color) }}/页</td>
-                                        <td style="text-align:right;font-weight:700;">￥{{ fmt(file.colCount * config.color) }}</td>
-                                    </tr>
-                                    <tr v-if="file.blankCount > 0">
-                                        <td><span class="bill-tag bill-tag-blank">空白页</span></td>
-                                        <td>{{ file.blankCount }} 页</td>
-                                        <td>
-                                            <span v-if="config.blankPageMode === 'free'">免费</span>
-                                            <span v-else>￥{{ fmt(blankUnitPrice) }}/页 ({{ blankModeLabel }})</span>
-                                        </td>
-                                        <td style="text-align:right;font-weight:700;">
-                                            <span v-if="config.blankPageMode === 'free'" style="color:#92400e;">￥0.00</span>
-                                            <span v-else>￥{{ fmt(file.blankCount * blankUnitPrice) }}</span>
-                                        </td>
-                                    </tr>
-                                </template>
-                                <template v-else>
-                                    <tr>
-                                        <td>统一计价打印</td>
-                                        <td>
-                                            {{ file.mode === 'single' && config.blankPageMode === 'free' ? file.totalPages - file.blankCount : file.totalPages }} 页
-                                            <span v-if="file.blankCount > 0 && config.blankPageMode === 'free'" style="font-size:12px;color:#92400e;">（空白{{ file.blankCount }}页免费）</span>
-                                        </td>
-                                        <td>￥{{ fmt(config.single) }}/页</td>
-                                        <td style="text-align:right;font-weight:700;">
-                                            ￥{{ fmt((file.mode === 'single' && config.blankPageMode === 'free' ? file.totalPages - file.blankCount : file.totalPages) * config.single) }}
-                                        </td>
-                                    </tr>
-                                </template>
-                                <tr v-if="file.use80gPaper">
-                                    <td>80g纸附加费</td>
-                                    <td>{{ file.duplex ? Math.ceil(file.totalPages/2) : file.totalPages }} 张</td>
-                                    <td>￥{{ fmt(config.paperAdd80g) }}/张</td>
-                                    <td style="text-align:right;font-weight:700;">￥{{ fmt((file.duplex ? Math.ceil(file.totalPages/2) : file.totalPages) * config.paperAdd80g) }}</td>
-                                </tr>
-                                <template v-if="file.selectedFees">
-                                    <tr v-for="(fee, idx) in customFees" :key="'bfee-'+idx" v-show="file.selectedFees[idx]">
-                                        <td>{{ fee.name }}</td>
-                                        <td>{{ fee.type === 'perPage' ? file.totalPages + ' 页' : file.copies + ' 份' }}</td>
-                                        <td>￥{{ fmt(fee.price) }}/{{ fee.type === 'perPage' ? '页' : '份' }}</td>
-                                        <td style="text-align:right;font-weight:700;">￥{{ fmt(fee.type === 'perPage' ? file.totalPages * fee.price : file.copies * fee.price) }}</td>
-                                    </tr>
-                                </template>
-                                <tr class="bill-subtotal">
-                                    <td colspan="3" style="text-align:right;color:#475569;">单份小计</td>
-                                    <td style="text-align:right;">￥{{ fmt(calcFileSubtotal(file)) }}</td>
-                                </tr>
-                                <tr v-if="file.copies > 1" class="bill-subtotal">
-                                    <td colspan="3" style="text-align:right;color:#475569;">× {{ file.copies }} 份合计</td>
-                                    <td style="text-align:right;color:#1d4ed8;">￥{{ fmt(calcFileSubtotal(file) * file.copies) }}</td>
-                                </tr>
-                                <tr v-if="discountRate < 100" class="bill-subtotal">
-                                    <td colspan="3" style="text-align:right;color:#475569;">折扣（{{ discountRate }}%）后</td>
-                                    <td style="text-align:right;color:#059669;font-size:15px;">￥{{ fmt(calcFileFinalAmount(file) * file.copies) }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="bill-section-title">汇总计费</div>
-                    <table class="bill-table" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
-                        <tbody>
-                            <tr v-if="mixedBwPages > 0">
-                                <td>黑白打印费（分色）</td>
-                                <td>{{ mixedBwPages }} 页 × ￥{{ fmt(config.bw) }}</td>
-                                <td style="text-align:right;font-weight:700;">￥{{ fmt(totalBwCost) }}</td>
-                            </tr>
-                            <tr v-if="mixedColorPages > 0">
-                                <td>彩色打印费（分色）</td>
-                                <td>{{ mixedColorPages }} 页 × ￥{{ fmt(config.color) }}</td>
-                                <td style="text-align:right;font-weight:700;">￥{{ fmt(totalColorCost) }}</td>
-                            </tr>
-                            <tr v-if="totalBlankCost > 0">
-                                <td>空白页打印费（{{ blankModeLabel }}）</td>
-                                <td>{{ totalBlankPages }} 页 × ￥{{ fmt(blankUnitPrice) }}</td>
-                                <td style="text-align:right;font-weight:700;">￥{{ fmt(totalBlankCost) }}</td>
-                            </tr>
-                            <tr v-if="singlePages > 0">
-                                <td>统一计价打印费</td>
-                                <td>{{ singlePages }} 页 × ￥{{ fmt(config.single) }}</td>
-                                <td style="text-align:right;font-weight:700;">￥{{ fmt(totalSingleCost) }}</td>
-                            </tr>
-                            <tr v-if="totalPaperAddCost > 0">
-                                <td>80g纸附加费</td>
-                                <td>{{ total80gSheets }} 张</td>
-                                <td style="text-align:right;font-weight:700;">￥{{ fmt(totalPaperAddCost) }}</td>
-                            </tr>
-                            <tr v-for="(fee, idx) in customFeesTotal" :key="'cft-'+idx" v-show="fee.total > 0">
-                                <td>{{ fee.name }}</td>
-                                <td>—</td>
-                                <td style="text-align:right;font-weight:700;">￥{{ fmt(fee.total) }}</td>
-                            </tr>
-                            <tr style="background:#f8fafc;font-weight:700;border-top:2px solid #e2e8f0;">
-                                <td colspan="2" style="text-align:right;color:#475569;">原始合计</td>
-                                <td style="text-align:right;font-size:15px;">￥{{ fmt(totalStats.cost) }}</td>
-                            </tr>
-                            <tr v-if="discountRate < 100" style="background:#f0fdf4;font-weight:700;">
-                                <td colspan="2" style="text-align:right;color:#475569;">折扣（{{ discountRate }}%）</td>
-                                <td style="text-align:right;font-size:15px;color:#059669;">￥{{ fmt(discountAmount) }}</td>
-                            </tr>
-                            <tr v-if="isRounded" style="background:#f0fdf4;font-weight:700;">
-                                <td colspan="2" style="text-align:right;color:#475569;">抹零后</td>
-                                <td style="text-align:right;font-size:15px;color:#059669;">￥{{ fmt(afterRoundAmount) }}</td>
-                            </tr>
-                            <tr v-if="adjustType && adjustHistory > 0" style="background:#f0fdf4;font-weight:700;">
-                                <td colspan="2" style="text-align:right;color:#475569;">{{ adjustType === 'add' ? '加价' : '减价' }}</td>
-                                <td style="text-align:right;font-size:15px;" :style="adjustType === 'add' ? 'color:#b91c1c' : 'color:#059669'">
-                                    {{ adjustType === 'add' ? '+' : '-' }}￥{{ fmt(adjustHistory) }}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <div class="bill-grand">应付金额：<span class="bill-grand-num">￥{{ fmt(finalAmount) }}</span></div>
-
-                    <div data-bill-actions style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;flex-wrap:wrap;">
-                        <button @click="showBillModal = false" class="btn-bill-close">关闭</button>
-                        <button @click="openImageInNewTab" class="btn-bill-newtab" :disabled="isSavingImage">
-                            <span v-if="isSavingImage">⏳ 生成中…</span>
-                            <span v-else>🔗 在新标签显示</span>
-                        </button>
-                        <button @click="saveBillAsImage" class="btn-bill-img" :disabled="isSavingImage">
-                            <span v-if="isSavingImage">⏳ 生成中…</span>
-                            <span v-else>🖼️ 下载为图片</span>
-                        </button>
-                        <button @click="printBill" class="btn-bill-print">🖨️ 打印对账单</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- 图片放大弹窗 -->
         <div v-if="modalImgUrl" class="modal-backdrop" @click="closeImageModal">
             <img :src="modalImgUrl" class="modal-img" @click.stop>
@@ -1027,8 +805,6 @@
             const adjustType = ref(''); 
             const adjustHistory = ref(0); 
             const showCostSection = ref(true);
-            const showBillModal = ref(false); 
-            const isSavingImage = ref(false);
 
             // 记录除数为0错误列表（用于横幅提示）
             const zeroDivisorErrors = ref([]);
@@ -1081,8 +857,8 @@
             const friendlyLinks = ref([
                 { url: 'https://www.kewu.cc', title: '匿名\'s blog' },
                 { url: 'https://www.subrecovery.top', title: '异次元通讯-次元复苏' },
-                { url: 'https://njust.wiki', title: '' },
-                { url: 'https://id5.fun', title: '' }
+                { url: 'https://manual.njust.wiki', title: '南理工生存手册' },
+                { url: 'https://www.id5.fun', title: '' }
             ]);
 
             const roundPrecisionLabel = computed(() => {
@@ -1519,97 +1295,112 @@
             const openImageModal = (url) => modalImgUrl.value = url;
             const closeImageModal = () => modalImgUrl.value = '';
 
-            const generateBillCanvas = async () => {
-                const modal = document.getElementById('billModal');
-                if (!modal || isSavingImage.value) return null;
-                isSavingImage.value = true;
-                try {
-                    const btnArea = modal.querySelector('[data-bill-actions]');
-                    if (btnArea) btnArea.style.display = 'none';
-                    if (document.fonts) await document.fonts.ready;
-                    const prevMaxHeight = modal.style.maxHeight;
-                    const prevOverflow  = modal.style.overflowY;
-                    const prevWidth = modal.style.width;
-                    const currentClientWidth = modal.clientWidth;
-                    modal.style.width = currentClientWidth + 'px';
-                    modal.style.maxHeight = 'none';
-                    modal.style.overflowY = 'visible';
-                    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-                    const fullWidth  = modal.scrollWidth;
-                    const fullHeight = modal.scrollHeight;
-                    const canvas = await html2canvas(modal, {
-                        scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false,
-                        width: fullWidth, height: fullHeight, scrollX: 0, scrollY: -window.scrollY,
-                        windowWidth: document.documentElement.clientWidth,
-                        windowHeight: document.documentElement.clientHeight
-                    });
-                    modal.style.maxHeight = prevMaxHeight;
-                    modal.style.overflowY  = prevOverflow;
-                    modal.style.width = prevWidth;
-                    if (btnArea) btnArea.style.display = '';
-                    return canvas;
-                } catch (err) {
-                    console.error('截图生成失败:', err);
-                    alert('生成图片失败，请尝试打印功能。');
-                    return null;
-                } finally {
-                    isSavingImage.value = false;
-                }
+            const encodeBase64Url = (text) => {
+                const base64 = btoa(unescape(encodeURIComponent(text)));
+                return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
             };
 
-            const saveBillAsImage = async () => { const canvas = await generateBillCanvas(); if (canvas) downloadCanvas(canvas); };
-
-            const openImageInNewTab = async () => {
-                const canvas = await generateBillCanvas();
-                if (canvas) {
-                    const imgUrl = canvas.toDataURL('image/png');
-                    const win = window.open('', '_blank');
-                    if (win) {
-                        win.document.write(`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>打印消费对账单</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{margin:0;background:#334155;display:flex;justify-content:center;align-items:flex-start;padding:20px;min-height:100vh;box-sizing:border-box;}img{max-width:100%;height:auto;border-radius:12px;box-shadow:0 24px 64px rgba(0,0,0,0.35);}</style></head><body><img src="${imgUrl}" alt="对账单"></body></html>`);
-                        win.document.close();
-                    } else { alert('新窗口已被浏览器拦截，请允许弹出窗口，或使用"下载为图片"功能。'); }
-                }
+            const buildBillQueryParams = () => {
+                const validFiles = files.value.filter(file => !file.error);
+                const fileSummaries = validFiles.map(file => {
+                    const copies = Number(file.copies) || 1;
+                    const feeItems = [];
+                    if (file.selectedFees && Array.isArray(file.selectedFees)) {
+                        customFees.value.forEach((fee, idx) => {
+                            if (!file.selectedFees[idx]) return;
+                            const qty = fee.type === 'perPage' ? (Number(file.totalPages) || 0) : copies;
+                            const unit = fee.type === 'perPage' ? '页' : '份';
+                            feeItems.push({
+                                name: fee.name || '',
+                                type: fee.type,
+                                price: Number(fee.price) || 0,
+                                qty,
+                                unit,
+                                total: (Number(fee.price) || 0) * qty
+                            });
+                        });
+                    }
+                    return {
+                        name: file.name || '',
+                        mode: file.mode || 'mixed',
+                        copies,
+                        duplex: !!file.duplex,
+                        use80gPaper: !!file.use80gPaper,
+                        totalPages: Number(file.totalPages) || 0,
+                        bwCount: Number(file.bwCount) || 0,
+                        colCount: Number(file.colCount) || 0,
+                        blankCount: Number(file.blankCount) || 0,
+                        subtotal: Number(calcFileSubtotal(file)) || 0,
+                        finalAmount: Number(calcFileFinalAmount(file) * copies) || 0,
+                        feeItems
+                    };
+                });
+                const feeSummaries = customFeesTotal.value
+                    .filter(fee => fee.total > 0)
+                    .map(fee => ({ name: fee.name || '', total: Number(fee.total) || 0 }));
+                const payload = {
+                    ts: Date.now(),
+                    tbw: totalBwPages.value,
+                    tcol: totalColorPages.value,
+                    tblk: totalBlankPages.value,
+                    tp: totalBwPages.value + totalColorPages.value + totalBlankPages.value,
+                    sheets: (total70gSheets.value || 0) + (total80gSheets.value || 0),
+                    fcount: fileSummaries.length,
+                    bwc: totalBwCost.value,
+                    cc: totalColorCost.value,
+                    sc: totalSingleCost.value,
+                    bc: totalBlankCost.value,
+                    pac: totalPaperAddCost.value,
+                    cfc: totalCustomFeesCost.value,
+                    orig: totalStats.cost,
+                    disc: discountAmount.value,
+                    final: finalAmount.value,
+                    paper: paperCost.value,
+                    ink: inkCost.value,
+                    cost: (paperCost.value || 0) + (inkCost.value || 0),
+                    pr: profitRate.value,
+                    pa: profitAmount.value,
+                    dr: discountRate.value,
+                    ir: isRounded.value ? 1 : 0,
+                    ara: afterRoundAmount.value,
+                    at: adjustType.value || '',
+                    ah: adjustHistory.value,
+                    bw: config.bw,
+                    color: config.color,
+                    single: config.single,
+                    p80add: config.paperAdd80g,
+                    p70price: config.paper70gPrice,
+                    p70qty: config.paper70gQty,
+                    p80price: config.paper80gPrice,
+                    p80qty: config.paper80gQty,
+                    blankMode: config.blankPageMode || 'free',
+                    blankPrice: blankUnitPrice.value,
+                    inkPrice: config.inkPrice,
+                    inkYield: config.inkYield,
+                    filename: fileSummaries.map(file => file.name).join(' | '),
+                    files: fileSummaries,
+                    fees: feeSummaries
+                };
+                const raw = JSON.stringify(payload);
+                const packed = (window.LZString && window.LZString.compressToEncodedURIComponent)
+                    ? window.LZString.compressToEncodedURIComponent(raw)
+                    : encodeBase64Url(raw);
+                const params = new URLSearchParams();
+                params.set('p', packed);
+                return params;
             };
 
-            const downloadCanvas = (canvas) => {
-                const now = new Date();
-                const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
-                const a = document.createElement('a');
-                a.href = canvas.toDataURL('image/png');
-                a.download = `打印对账单_${ts}.png`;
-                a.click();
+            const buildBillUrl = () => {
+                const billUrl = new URL('bill.html', window.location.href);
+                billUrl.search = buildBillQueryParams().toString();
+                return billUrl.toString();
             };
 
-            const printBill = () => {
-                const modal = document.getElementById('billModal');
-                if (!modal) return;
-                const cloned = modal.cloneNode(true);
-                cloned.querySelectorAll('button').forEach(b => b.remove());
-                const html = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>打印对账单</title>
-                <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@800&display=swap" rel="stylesheet">
-                <style>
-                    *{box-sizing:border-box;}
-                    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;padding:24px 28px;color:#1e293b;font-size:14px;max-width:680px;margin:0 auto;}
-                    .bill-head{background:linear-gradient(135deg,#1e293b,#334155);color:#fff;padding:20px 24px 14px;border-radius:12px 12px 0 0;}
-                    .bill-body{padding:18px 24px 24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;}
-                    .bill-section-title{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin:16px 0 8px;}
-                    table{width:100%;border-collapse:collapse;margin-bottom:4px;}
-                    th{background:#f8fafc;text-align:left;padding:7px 10px;font-size:12px;font-weight:700;color:#64748b;border-bottom:2px solid #e2e8f0;}
-                    td{padding:8px 10px;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;}
-                    .bill-subtotal td{background:#f8fafc;font-weight:700;}
-                    .bill-grand{background:#0f172a;color:#9dff00;padding:12px 18px;border-radius:8px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:22px;font-weight:800;text-align:center;margin:14px 0 4px;}
-                    .bill-grand-num{font-family:'Orbitron',monospace;letter-spacing:2px;}
-                    .bill-tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:12px;font-weight:700;}
-                    .bill-tag-bw{background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;}
-                    .bill-tag-col{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;}
-                    .bill-tag-blank{background:#fffbeb;color:#92400e;border:1px solid #fde68a;}
-                    .bill-tag-duplex{background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe;}
-                    @media print{body{padding:0;}}
-                </style></head><body>` + cloned.outerHTML + `</body></html>`;
-                const win = window.open('', '_blank');
-                win.document.write(html);
-                win.document.close();
-                win.onload = () => win.print();
+            const openCustomerBill = () => {
+                if (!files.value.length) return;
+                const url = buildBillUrl();
+                const win = window.open(url, '_blank');
+                if (!win) window.location.href = url;
             };
 
             watch([() => ({ ...config }), customFees], () => {
@@ -1630,15 +1421,14 @@
                 mixedBwPages, mixedColorPages, singlePages, totalBwCost, totalColorCost,
                 totalSingleCost, totalPaperAddCost, totalCustomFeesCost, customFeesTotal, totalStandardPages, inkCost,
                 paperCost, totalCmyk, totalStats, discountAmount, finalAmount, profitRate, profitAmount,
-                friendlyLinks, triggerUpload, hasDuplexFiles, showCostSection, showBillModal, isSavingImage,
+                friendlyLinks, triggerUpload, hasDuplexFiles, showCostSection, openCustomerBill,
                 handleUpload, onDragOver, onDragLeave, onDrop, removeFile, openImageModal, closeImageModal,
                 clampTwoDecimals, clampNonNegative, resetDiscount, customRoundAmount, adjustPrice, resetAdjust, 
                 fmt: formatAmount, formatAmount, safeDiv, getFileStdPages,
                 getFileAvgCmyk, getFileTotalCoverage, getFeeList, getFeeTotal, reanalyzeAll, addCustomFee,
                 removeCustomFee, saveCustomFees, clampTwoDecimalsForFee, resetToDefault,
                 calcFileSubtotal, calcFileFinalAmount, calcFilePrintCost,
-                printBill, saveBillAsImage, openImageInNewTab, animTick,
-                // 新增
+                buildBillUrl, animTick,
                 zeroDivisorErrors, validateDivisor,
                 blankModeOptions, blankUnitPrice, blankModeLabel,
             };
